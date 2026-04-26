@@ -1,0 +1,36 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 23, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "mac-arm64",
+      "displayName": "macOS Apple Silicon (M1/M2/M3)",
+      "binaryDir": "${sourceDir}/pass-build/mac-arm64",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "LLVM_DIR": "${sourceDir}/build/lib/cmake/llvm"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows (Visual Studio / MSVC)",
+      "binaryDir": "${sourceDir}/pass-build/windows-msvc",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_COMPILER": "cl",
+        "LLVM_DIR": "${sourceDir}/build/lib/cmake/llvm"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "mac-arm64",    "configurePreset": "mac-arm64" },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc" }
+  ]
+}

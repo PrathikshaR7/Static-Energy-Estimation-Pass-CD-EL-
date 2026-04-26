@@ -1,0 +1,41 @@
+cat > .gitignore << 'EOF'
+# LLVM source and build — local only, never committed
+llvm-project/
+build/
+pass-build/
+out/
+
+# Each person's local preset file with their own paths
+CMakeUserPresets.json
+
+# Compiled artifacts (platform-specific)
+*.dylib
+*.dll
+*.so
+*.a
+*.lib
+*.exp
+*.o
+*.obj
+*.d
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+EOF

@@ -1,0 +1,31 @@
+// HOW TO USE:
+// 1. Copy this file: cp CMakeUserPresets.json.template CMakeUserPresets.json
+// 2. Fill in YOUR local LLVM build path below
+// 3. CMakeUserPresets.json is gitignored — never commit it
+//
+// The default path assumes build/ is inside your repo (~/Static-Energy-Estimation-Pass-CD-EL-/build/).
+// Only change LLVM_DIR if your LLVM build lives somewhere else.
+
+{
+  "version": 6,
+  "configurePresets": [
+
+    // ---- macOS users: fill this in ----
+    {
+      "name": "mac-arm64",
+      "inherits": "mac-arm64",
+      "cacheVariables": {
+        "LLVM_DIR": "${sourceDir}/build/lib/cmake/llvm"
+      }
+    }
+
+    // ---- Windows users: fill this in instead ----
+    // {
+    //   "name": "windows-msvc",
+    //   "inherits": "windows-msvc",
+    //   "cacheVariables": {
+    //     "LLVM_DIR": "C:/Users/YourName/Static-Energy-Estimation-Pass-CD-EL-/build/lib/cmake/llvm"
+    //   }
+    // }
+  ]
+}
