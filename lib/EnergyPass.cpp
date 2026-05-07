@@ -17,7 +17,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Plugins/PassPlugin.h"
+#include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <map>
@@ -62,8 +62,8 @@ static InstrCategory classify(const Instruction &I) {
     return InstrCategory::Memory;
 
   // Control flow
-  if (isa<UncondBrInst>(I) || isa<CondBrInst>(I) || isa<SwitchInst>(I) ||
-      isa<IndirectBrInst>(I) || isa<ReturnInst>(I))
+  if (isa<BranchInst>(I) || isa<SwitchInst>(I) ||
+    isa<IndirectBrInst>(I) || isa<ReturnInst>(I))
     return InstrCategory::Branch;
 
   // Calls
