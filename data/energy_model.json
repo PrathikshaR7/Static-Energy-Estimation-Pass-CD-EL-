@@ -1,0 +1,26 @@
+{
+  "comment": "Static energy model for LLVM IR instruction categories. Normalized relative units per instruction.",
+  "version": "1.0",
+  "architectures": {
+    "aarch64": {
+      "comment": "Apple M1 Pro AArch64 — tuned for ARM big.LITTLE energy profile",
+      "Integer":     1.0,
+      "FloatScalar": 1.5,
+      "FloatVector": 2.5,
+      "Memory":      2.0,
+      "Branch":      1.5,
+      "Call":        3.0,
+      "Other":       0.1
+    },
+    "x86_64": {
+      "comment": "x86-64 — tuned for Intel/AMD out-of-order core energy profile",
+      "Integer":     1.0,
+      "FloatScalar": 1.8,
+      "FloatVector": 3.0,
+      "Memory":      2.5,
+      "Branch":      2.0,
+      "Call":        3.5,
+      "Other":       0.1
+    }
+  }
+}

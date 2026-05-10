@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EnergyPass Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #0f1117; color: #e2e8f0; line-height: 1.6; }
+  h1 { padding: 2rem; color: #f8fafc; border-bottom: 1px solid #1e293b;
+       font-size: 1.5rem; }
+  h1 span { color: #38bdf8; }
+  h2 { font-size: 1.1rem; color: #94a3b8; padding: 1.5rem 2rem 0.5rem;
+       text-transform: uppercase; letter-spacing: 0.05em; }
+  h3 { font-size: 1rem; color: #38bdf8; padding: 1rem 2rem 0.25rem; }
+  .summary-table { width: calc(100% - 4rem); margin: 1rem 2rem;
+                   border-collapse: collapse; font-size: 0.85rem; }
+  .summary-table th { background: #1e293b; color: #94a3b8;
+                      padding: 0.5rem 1rem; text-align: left; font-weight: 600; }
+  .summary-table td { padding: 0.4rem 1rem; border-bottom: 1px solid #1e293b; }
+  .summary-table tr:hover td { background: #1e293b; }
+  .energy-high   { color: #f87171; font-weight: 600; }
+  .energy-medium { color: #fbbf24; }
+  .energy-low    { color: #34d399; }
+  .bar-cell { width: 200px; }
+  .bar-bg   { background: #1e293b; border-radius: 3px; height: 8px; }
+  .bar-fill { height: 8px; border-radius: 3px;
+              background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+  .source-file { margin: 0 2rem 2rem; border: 1px solid #1e293b;
+                 border-radius: 8px; overflow: hidden; }
+  .source-file-header { background: #1e293b; padding: 0.75rem 1rem;
+                        font-size: 0.85rem; color: #94a3b8; font-family: monospace; }
+  .source-table { width: 100%; border-collapse: collapse;
+                  font-family: 'Fira Code', 'Cascadia Code', monospace;
+                  font-size: 0.8rem; }
+  .source-table td { padding: 1px 0; vertical-align: top; }
+  .line-num  { color: #334155; padding: 0 1rem; text-align: right;
+               min-width: 3rem; user-select: none;
+               border-right: 1px solid #1e293b; }
+  .line-code { padding: 0 1rem; white-space: pre; color: #cbd5e1; }
+  .line-annot { padding: 0 0.5rem; min-width: 320px; }
+  .hot-depth-1 .line-code { background: rgba(251,191,36,0.07); }
+  .hot-depth-2 .line-code { background: rgba(248,113,113,0.10); }
+  .hot-depth-3 .line-code { background: rgba(248,113,113,0.18); }
+  .annot-pill     { display: inline-block; border-radius: 4px;
+                    padding: 1px 8px; font-size: 0.72rem;
+                    margin: 1px 0; white-space: nowrap; }
+  .annot-function { background: #1e40af; color: #bfdbfe; }
+  .annot-hotblock { background: #7c2d12; color: #fed7aa; }
+  .annot-depth    { background: #134e4a; color: #99f6e4; margin-left: 4px; }
+  .fn-grid { display: grid;
+             grid-template-columns: repeat(auto-fill, minmax(340px,1fr));
+             gap: 1rem; margin: 0.5rem 2rem 2rem; }
+  .fn-card { background: #1e293b; border-radius: 8px; padding: 1rem; }
+  .fn-card h4 { color: #f8fafc; font-size: 0.9rem; margin-bottom: 0.5rem; }
+  .fn-card .meta { color: #64748b; font-size: 0.75rem; margin-bottom: 0.75rem; }
+  .fn-stat { display: flex; justify-content: space-between;
+             align-items: center; margin: 4px 0; font-size: 0.8rem; }
+  .fn-stat .label { color: #94a3b8; }
+  .fn-stat .value { font-weight: 600; color: #f8fafc; }
+  .amplification  { color: #f87171; }
+  .section-divider { border: none; border-top: 1px solid #1e293b;
+                     margin: 1rem 2rem; }
+</style>
+</head>
+<body>
+<h1>⚡ <span>EnergyPass</span> Analysis Report</h1>
+
+<h2>Function Summary</h2>
+<table class="summary-table">
+  <thead><tr>
+    <th>Function</th><th>File</th><th>Instrs</th>
+    <th>Static Energy</th><th>Weighted Energy</th>
+    <th>Relative Cost</th><th>Amplification</th>
+  </tr></thead>
+  <tbody>
+        <tr>
+          <td><code>matmul</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            04_nested_loops.c</td>
+          <td>38</td>
+          <td class="energy-high">47.50</td>
+          <td class="energy-high">26426.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:160px"></div></div></td>
+          <td class="amplification">556.3x</td>
+        </tr>
+        <tr>
+          <td><code>bubble_sort</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            04_nested_loops.c</td>
+          <td>28</td>
+          <td class="energy-low">36.00</td>
+          <td class="energy-low">1980.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:11px"></div></div></td>
+          <td class="amplification">55.0x</td>
+        </tr>
+        <tr>
+          <td><code>matrix_transpose</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            03_memory.c</td>
+          <td>27</td>
+          <td class="energy-low">32.50</td>
+          <td class="energy-low">1265.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:7px"></div></div></td>
+          <td class="amplification">38.9x</td>
+        </tr>
+        <tr>
+          <td><code>vector_norm</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            02_float.c</td>
+          <td>27</td>
+          <td class="energy-low">38.00</td>
+          <td class="energy-low">294.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:1px"></div></div></td>
+          <td class="amplification">7.8x</td>
+        </tr>
+        <tr>
+          <td><code>running_avg</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            05_mixed.c</td>
+          <td>18</td>
+          <td class="energy-low">24.00</td>
+          <td class="energy-low">168.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:1px"></div></div></td>
+          <td class="amplification">7.0x</td>
+        </tr>
+        <tr>
+          <td><code>poly_eval</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            02_float.c</td>
+          <td>17</td>
+          <td class="energy-low">24.00</td>
+          <td class="energy-low">159.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">6.6x</td>
+        </tr>
+        <tr>
+          <td><code>matrix_add</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            03_memory.c</td>
+          <td>16</td>
+          <td class="energy-low">21.50</td>
+          <td class="energy-low">156.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">7.3x</td>
+        </tr>
+        <tr>
+          <td><code>find_max</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            03_memory.c</td>
+          <td>15</td>
+          <td class="energy-low">21.00</td>
+          <td class="energy-low">124.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">5.9x</td>
+        </tr>
+        <tr>
+          <td><code>newton_sqrt</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            02_float.c</td>
+          <td>11</td>
+          <td class="energy-low">15.00</td>
+          <td class="energy-low">123.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">8.2x</td>
+        </tr>
+        <tr>
+          <td><code>popcount</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            01_integer.c</td>
+          <td>11</td>
+          <td class="energy-low">12.50</td>
+          <td class="energy-low">80.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">6.4x</td>
+        </tr>
+        <tr>
+          <td><code>ray_sphere</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            05_mixed.c</td>
+          <td>39</td>
+          <td class="energy-low">71.50</td>
+          <td class="energy-low">71.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">1.0x</td>
+        </tr>
+        <tr>
+          <td><code>gcd</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            01_integer.c</td>
+          <td>9</td>
+          <td class="energy-low">10.50</td>
+          <td class="energy-low">60.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">5.7x</td>
+        </tr>
+        <tr>
+          <td><code>sum_range</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            01_integer.c</td>
+          <td>15</td>
+          <td class="energy-low">16.50</td>
+          <td class="energy-low">16.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">1.0x</td>
+        </tr></tbody>
+</table>
+<hr class="section-divider">
+<h2>Function Details</h2><div class="fn-grid">
+      <div class="fn-card">
+        <h4>matmul</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=38 &nbsp;
+          04_nested_loops.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">47.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">26426.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">556.3x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body8
+              <span style="color:#475569"> depth=3</span></span>
+            <span class="value" style="color:#fbbf24">
+              16000.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond.cleanup7
+              <span style="color:#475569"> depth=3</span></span>
+            <span class="value" style="color:#fbbf24">
+              6500.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond.cleanup3
+              <span style="color:#475569"> depth=3</span></span>
+            <span class="value" style="color:#fbbf24">
+              3500.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond5.preheader
+              <span style="color:#475569"> depth=2</span></span>
+            <span class="value" style="color:#fbbf24">
+              350.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond1.preheader
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              65.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>bubble_sort</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=28 &nbsp;
+          04_nested_loops.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">36.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">1980.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">55.0x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body6
+              <span style="color:#475569"> depth=2</span></span>
+            <span class="value" style="color:#fbbf24">
+              1050.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ if.then
+              <span style="color:#475569"> depth=2</span></span>
+            <span class="value" style="color:#fbbf24">
+              550.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.inc
+              <span style="color:#475569"> depth=2</span></span>
+            <span class="value" style="color:#fbbf24">
+              250.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond1.preheader
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              55.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond.cleanup5
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              45.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.body6.preheader
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              25.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>matrix_transpose</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=27 &nbsp;
+          03_memory.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">32.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">1265.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">38.9x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body4
+              <span style="color:#475569"> depth=2</span></span>
+            <span class="value" style="color:#fbbf24">
+              1150.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.body4.lr.ph
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              45.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond.cleanup3
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              35.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond1.preheader
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              25.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>vector_norm</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=27 &nbsp;
+          02_float.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">38.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">294.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">7.8x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              120.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.body.i
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              105.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond.cleanup.loopexit
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              30.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ newton_sqrt.exit
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              30.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>running_avg</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=18 &nbsp;
+          05_mixed.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">24.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">168.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">7.0x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              160.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>poly_eval</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=17 &nbsp;
+          02_float.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">24.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">159.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">6.6x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              150.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>matrix_add</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=16 &nbsp;
+          03_memory.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">21.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">156.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">7.3x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              150.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>find_max</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=15 &nbsp;
+          03_memory.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">21.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">124.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">5.9x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              115.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>newton_sqrt</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=11 &nbsp;
+          02_float.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">15.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">123.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">8.2x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              105.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond.cleanup
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              15.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>popcount</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=11 &nbsp;
+          01_integer.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">12.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">80.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">6.4x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ while.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              75.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>ray_sphere</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=39 &nbsp;
+          05_mixed.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">71.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">71.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">1.0x</span>
+        </div>
+        
+      </div>
+      <div class="fn-card">
+        <h4>gcd</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=9 &nbsp;
+          01_integer.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">10.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">60.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">5.7x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ while.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              55.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>sum_range</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=15 &nbsp;
+          01_integer.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">16.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">16.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">1.0x</span>
+        </div>
+        
+      </div></div>
+<hr class="section-divider">
+<h2>Annotated Source</h2>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/01_integer.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/01_integer.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 01: Integer-heavy workload</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Expected: high Integer%, low Memory%, low weighted-energy</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Exercises: ADD, SUB, MUL, shifts, comparisons</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">int gcd(int a, int b) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code">    while (b != 0) {</td><td class="line-annot"><span class="annot-pill annot-function">⚡ gcd w=60.0 (5.7x)</span></td></tr><tr class=""><td class="line-num">7</td><td class="line-code">        int t = b;</td><td class="line-annot"></td></tr><tr class=" hot-depth-1"><td class="line-num">8</td><td class="line-code">        b = a % b;</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 while.body w=55.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">9</td><td class="line-code">        a = t;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">10</td><td class="line-code">    }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">11</td><td class="line-code">    return a;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">12</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">13</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">14</td><td class="line-code">int sum_range(int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code">    int sum = 0;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">16</td><td class="line-code">    for (int i = 1; i &lt;= n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ sum_range w=16.5 (1.0x)</span></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">        sum += i;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">18</td><td class="line-code">    return sum;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">19</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">20</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">21</td><td class="line-code">int popcount(unsigned int x) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">    int count = 0;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">    while (x) {</td><td class="line-annot"><span class="annot-pill annot-function">⚡ popcount w=80.0 (6.4x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">24</td><td class="line-code">        count += x &amp; 1;</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 while.body w=75.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">25</td><td class="line-code">        x &gt;&gt;= 1;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">26</td><td class="line-code">    }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">27</td><td class="line-code">    return count;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">28</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/02_float.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/02_float.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 02: Floating-point heavy workload</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Expected: high FloatScalar%, higher energy per instruction than integer</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Exercises: FADD, FMUL, FDIV, scalar FP pipeline</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">float poly_eval(float x, float *coeffs, int degree) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code">    float result = 0.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">7</td><td class="line-code">    float xpow   = 1.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">8</td><td class="line-code">    for (int i = 0; i &lt;= degree; i++) {</td><td class="line-annot"><span class="annot-pill annot-function">⚡ poly_eval w=159.0 (6.6x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">9</td><td class="line-code">        result += coeffs[i] * xpow;</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=150.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">10</td><td class="line-code">        xpow   *= x;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">11</td><td class="line-code">    }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">12</td><td class="line-code">    return result;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">13</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">14</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code">double newton_sqrt(double n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">16</td><td class="line-code">    double x = n / 2.0;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">    for (int i = 0; i &lt; 20; i++)</td><td class="line-annot"></td></tr><tr class=" hot-depth-1"><td class="line-num">18</td><td class="line-code">        x = 0.5 * (x + n / x);</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=105.0</span><span class="annot-pill annot-depth">depth=1</span> <span class="annot-pill annot-hotblock">🔥 for.body.i w=105.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=" hot-depth-1"><td class="line-num">19</td><td class="line-code">    return x;</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond.cleanup w=15.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">20</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">21</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">float vector_norm(float *v, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">    float sum = 0.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">24</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ vector_norm w=294.5 (7.8x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">25</td><td class="line-code">        sum += v[i] * v[i];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=120.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=" hot-depth-1"><td class="line-num">26</td><td class="line-code">    return newton_sqrt(sum);</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond.cleanup.loopexit w=30.0</span><span class="annot-pill annot-depth">depth=1</span> <span class="annot-pill annot-hotblock">🔥 newton_sqrt.exit w=30.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">27</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/03_memory.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/03_memory.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 03: Memory-bound workload</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Expected: high Memory%, highest energy — memory dominates on AArch64</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Exercises: loads and stores across large arrays (cache pressure)</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">void matrix_add(float *C, float *A, float *B, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ matrix_add w=156.5 (7.3x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">7</td><td class="line-code">        C[i] = A[i] + B[i];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=150.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">8</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">9</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">10</td><td class="line-code">void matrix_transpose(float *dst, float *src, int rows, int cols) {</td><td class="line-annot"></td></tr><tr class=" hot-depth-1"><td class="line-num">11</td><td class="line-code">    for (int i = 0; i &lt; rows; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ matrix_transpose w=1265.5 (38.9x)</span> <span class="annot-pill annot-hotblock">🔥 for.cond.cleanup3 w=35.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=" hot-depth-1"><td class="line-num">12</td><td class="line-code">        for (int j = 0; j &lt; cols; j++)</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond1.preheader w=25.0</span><span class="annot-pill annot-depth">depth=1</span> <span class="annot-pill annot-hotblock">🔥 for.body4.lr.ph w=45.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=" hot-depth-2"><td class="line-num">13</td><td class="line-code">            dst[j * rows + i] = src[i * cols + j];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body4 w=1150.0</span><span class="annot-pill annot-depth">depth=2</span></td></tr><tr class=""><td class="line-num">14</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">16</td><td class="line-code">int find_max(int *arr, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">    int max = arr[0];</td><td class="line-annot"><span class="annot-pill annot-function">⚡ find_max w=124.5 (5.9x)</span></td></tr><tr class=""><td class="line-num">18</td><td class="line-code">    for (int i = 1; i &lt; n; i++)</td><td class="line-annot"></td></tr><tr class=" hot-depth-1"><td class="line-num">19</td><td class="line-code">        if (arr[i] &gt; max)</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=115.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">20</td><td class="line-code">            max = arr[i];</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">21</td><td class="line-code">    return max;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/04_nested_loops.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/04_nested_loops.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 04: Nested loops — stress test for frequency weighting</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Expected: innermost loop blocks get freq-weight=100 (depth=2)</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Key insight: weighted-energy &gt;&gt; static-energy for deeply nested code</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">void matmul(float *C, float *A, float *B, int n) {</td><td class="line-annot"></td></tr><tr class=" hot-depth-3"><td class="line-num">6</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ matmul w=26426.5 (556.3x)</span> <span class="annot-pill annot-hotblock">🔥 for.cond.cleanup3 w=3500.0</span><span class="annot-pill annot-depth">depth=3</span></td></tr><tr class=" hot-depth-1"><td class="line-num">7</td><td class="line-code">        for (int j = 0; j &lt; n; j++) {</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond1.preheader w=65.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">8</td><td class="line-code">            float sum = 0.0f;</td><td class="line-annot"></td></tr><tr class=" hot-depth-2"><td class="line-num">9</td><td class="line-code">            for (int k = 0; k &lt; n; k++)</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond5.preheader w=350.0</span><span class="annot-pill annot-depth">depth=2</span></td></tr><tr class=" hot-depth-3"><td class="line-num">10</td><td class="line-code">                sum += A[i * n + k] * B[k * n + j];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body8 w=16000.0</span><span class="annot-pill annot-depth">depth=3</span></td></tr><tr class=" hot-depth-3"><td class="line-num">11</td><td class="line-code">            C[i * n + j] = sum;</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond.cleanup7 w=6500.0</span><span class="annot-pill annot-depth">depth=3</span></td></tr><tr class=""><td class="line-num">12</td><td class="line-code">        }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">13</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">14</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code">void bubble_sort(int *arr, int n) {</td><td class="line-annot"></td></tr><tr class=" hot-depth-1"><td class="line-num">16</td><td class="line-code">    for (int i = 0; i &lt; n - 1; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ bubble_sort w=1980.0 (55.0x)</span> <span class="annot-pill annot-hotblock">🔥 for.cond.cleanup5 w=45.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=" hot-depth-2"><td class="line-num">17</td><td class="line-code">        for (int j = 0; j &lt; n - i - 1; j++)</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond1.preheader w=55.0</span><span class="annot-pill annot-depth">depth=1</span> <span class="annot-pill annot-hotblock">🔥 for.body6.preheader w=25.0</span><span class="annot-pill annot-depth">depth=1</span> <span class="annot-pill annot-hotblock">🔥 for.inc w=250.0</span><span class="annot-pill annot-depth">depth=2</span></td></tr><tr class=" hot-depth-2"><td class="line-num">18</td><td class="line-code">            if (arr[j] &gt; arr[j + 1]) {</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body6 w=1050.0</span><span class="annot-pill annot-depth">depth=2</span></td></tr><tr class=""><td class="line-num">19</td><td class="line-code">                int tmp    = arr[j];</td><td class="line-annot"></td></tr><tr class=" hot-depth-2"><td class="line-num">20</td><td class="line-code">                arr[j]     = arr[j + 1];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 if.then w=550.0</span><span class="annot-pill annot-depth">depth=2</span></td></tr><tr class=""><td class="line-num">21</td><td class="line-code">                arr[j + 1] = tmp;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">            }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/05_mixed.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/05_mixed.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 05: Mixed realistic workload</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Expected: balanced category distribution, moderate weighted-energy</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Combines integer control flow, FP computation, and memory access</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">typedef struct { float x, y, z; } Vec3;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">7</td><td class="line-code">static float vec3_dot(Vec3 a, Vec3 b) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">8</td><td class="line-code">    return a.x*b.x + a.y*b.y + a.z*b.z;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">9</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">10</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">11</td><td class="line-code">static Vec3 vec3_scale(Vec3 v, float s) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">12</td><td class="line-code">    return (Vec3){ v.x*s, v.y*s, v.z*s };</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">13</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">14</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code">// Simple ray-sphere intersection (energy-relevant graphics primitive)</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">16</td><td class="line-code">int ray_sphere(Vec3 origin, Vec3 dir, Vec3 center, float radius,</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">               float *t_out) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">18</td><td class="line-code">    Vec3  oc  = { origin.x - center.x,</td><td class="line-annot"><span class="annot-pill annot-function">⚡ ray_sphere w=71.5 (1.0x)</span></td></tr><tr class=""><td class="line-num">19</td><td class="line-code">                  origin.y - center.y,</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">20</td><td class="line-code">                  origin.z - center.z };</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">21</td><td class="line-code">    float a   = vec3_dot(dir, dir);</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">    float b   = 2.0f * vec3_dot(oc, dir);</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">    float c   = vec3_dot(oc, oc) - radius * radius;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">24</td><td class="line-code">    float disc = b*b - 4.0f*a*c;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">25</td><td class="line-code">    if (disc &lt; 0.0f) return 0;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">26</td><td class="line-code">    *t_out = (-b - __builtin_sqrtf(disc)) / (2.0f * a);</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">27</td><td class="line-code">    return 1;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">28</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">29</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">30</td><td class="line-code">// Reduce an array with a running average</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">31</td><td class="line-code">float running_avg(float *data, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">32</td><td class="line-code">    float avg = 0.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">33</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ running_avg w=168.0 (7.0x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">34</td><td class="line-code">        avg += (data[i] - avg) / (float)(i + 1);</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=160.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">35</td><td class="line-code">    return avg;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">36</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+</body>
+</html>

@@ -1,43 +1,61 @@
 //===----------------------------------------------------------------------===//
 // EnergyPass.cpp
 //
-// Out-of-tree LLVM IR Function Pass — Static Energy Estimator Skeleton
-// Target: AArch64 (Apple M1 Pro), also compilable on Windows/x86-64
+// Phase 8: LLVM Remarks Integration via LLVMContext diagnostics
 //
-// Phase roadmap:
-//   Phase 2 (this file) — classify IR instructions, placeholder costs, report
-//   Phase 3             — extract real AArch64 opcodes from MIR via llc
-//   Phase 4             — load energy costs from external JSON model
-//   Phase 7             — weight estimates by block execution frequency
-//   Phase 8             — emit results via LLVM Optimization Remarks
+// Remarks are emitted directly through LLVMContext::diagnose() rather than
+// OptimizationRemarkEmitterAnalysis, avoiding the duplicate-symbol problem
+// with out-of-tree plugins on macOS.
+//
+// Usage:
+//   opt -load-pass-plugin=EnergyPass.dylib \
+//       -passes=energy-pass \
+//       -pass-remarks-analysis=energy \
+//       -pass-remarks-output=remarks.yml \
+//       -disable-output input.bc
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Plugins/PassPlugin.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
 
+#include <cmath>
+#include <iomanip>
 #include <map>
+#include <memory>
+#include <set>
+#include <sstream>
+#include <string>
+#include <vector>
 
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
 // Instruction Category Taxonomy
-//
-// Coarse-grained buckets that map to distinct energy profiles on M1 AArch64.
-// Each will correspond to a row in the JSON energy model (Phase 4).
 //===----------------------------------------------------------------------===//
 enum class InstrCategory {
-  Integer,      // ADD, SUB, MUL, AND/OR/XOR, shifts, icmp
-  FloatScalar,  // FADD, FSUB, FMUL, FDIV — scalar FP unit
-  FloatVector,  // Vector/NEON: <4 x float> etc — wide SIMD on M1
-  Memory,       // Load / Store / Atomic — dominates energy in real programs
-  Branch,       // Br, Switch, Ret — pipeline flush cost
-  Call,         // Direct and indirect calls — prologue/epilogue overhead
-  Other         // PHI, alloca, GEP, bitcast — near-zero cost
+  Integer, FloatScalar, FloatVector, Memory, Branch, Call, Other
+};
+
+static const std::vector<InstrCategory> ALL_CATEGORIES = {
+  InstrCategory::Integer,     InstrCategory::FloatScalar,
+  InstrCategory::FloatVector, InstrCategory::Memory,
+  InstrCategory::Branch,      InstrCategory::Call,
+  InstrCategory::Other
 };
 
 static StringRef categoryName(InstrCategory C) {
@@ -52,57 +70,367 @@ static StringRef categoryName(InstrCategory C) {
   }
 }
 
+static StringRef categoryKey(InstrCategory C) {
+  switch (C) {
+    case InstrCategory::Integer:     return "Integer";
+    case InstrCategory::FloatScalar: return "FloatScalar";
+    case InstrCategory::FloatVector: return "FloatVector";
+    case InstrCategory::Memory:      return "Memory";
+    case InstrCategory::Branch:      return "Branch";
+    case InstrCategory::Call:        return "Call";
+    default:                         return "Other";
+  }
+}
+
 //===----------------------------------------------------------------------===//
-// Instruction -> Category Mapping
+// Instruction -> Category
 //===----------------------------------------------------------------------===//
 static InstrCategory classify(const Instruction &I) {
-  // Memory — unambiguous, check first
   if (isa<LoadInst>(I) || isa<StoreInst>(I) ||
       isa<AtomicRMWInst>(I) || isa<AtomicCmpXchgInst>(I))
     return InstrCategory::Memory;
-
-  // Control flow
   if (isa<BranchInst>(I) || isa<SwitchInst>(I) ||
-    isa<IndirectBrInst>(I) || isa<ReturnInst>(I))
+      isa<IndirectBrInst>(I) || isa<ReturnInst>(I))
     return InstrCategory::Branch;
-
-  // Calls
   if (isa<CallInst>(I) || isa<InvokeInst>(I))
     return InstrCategory::Call;
-
-  // FP and vector — determined by result type
   Type *Ty = I.getType();
-  if (auto *VTy = dyn_cast<VectorType>(Ty)) {
-    Type *Elem = VTy->getElementType();
-    return Elem->isFloatingPointTy() ? InstrCategory::FloatVector
-                                     : InstrCategory::Integer;
-  }
-  if (Ty->isFloatingPointTy())
-    return InstrCategory::FloatScalar;
-
-  // Integer and pointer arithmetic
-  if (Ty->isIntegerTy() || Ty->isPointerTy())
-    return InstrCategory::Integer;
-
+  if (auto *VTy = dyn_cast<VectorType>(Ty))
+    return VTy->getElementType()->isFloatingPointTy()
+               ? InstrCategory::FloatVector : InstrCategory::Integer;
+  if (Ty->isFloatingPointTy())                return InstrCategory::FloatScalar;
+  if (Ty->isIntegerTy() || Ty->isPointerTy()) return InstrCategory::Integer;
   return InstrCategory::Other;
 }
 
 //===----------------------------------------------------------------------===//
-// Placeholder Energy Costs (relative units — replaced by JSON in Phase 4)
-//
-// Rationale for AArch64/M1:
-//   Memory (L1 ~4 cycles, L2 ~12, DRAM ~150+) >> FP > Integer
+// Loop depth via back-edge detection (no FAM analysis needed)
 //===----------------------------------------------------------------------===//
-static double placeholderCost(InstrCategory C) {
-  switch (C) {
-    case InstrCategory::Integer:     return 1.0;
-    case InstrCategory::FloatScalar: return 2.5;
-    case InstrCategory::FloatVector: return 3.5;
-    case InstrCategory::Memory:      return 8.0;
-    case InstrCategory::Branch:      return 1.5;
-    case InstrCategory::Call:        return 5.0;
-    default:                         return 0.5;
+static std::map<const BasicBlock *, std::set<const BasicBlock *>>
+computeDominators(const Function &F) {
+  std::map<const BasicBlock *, std::set<const BasicBlock *>> dom;
+  const BasicBlock *entry = &F.getEntryBlock();
+  std::set<const BasicBlock *> allBlocks;
+  for (auto &BB : F) allBlocks.insert(&BB);
+  for (auto &BB : F)
+    dom[&BB] = (&BB == entry) ? std::set<const BasicBlock *>{entry} : allBlocks;
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (auto &BB : F) {
+      if (&BB == entry) continue;
+      std::set<const BasicBlock *> newDom = allBlocks;
+      for (const BasicBlock *pred : predecessors(&BB)) {
+        std::set<const BasicBlock *> tmp;
+        for (auto *b : newDom)
+          if (dom[pred].count(b)) tmp.insert(b);
+        newDom = tmp;
+      }
+      newDom.insert(&BB);
+      if (newDom != dom[&BB]) { dom[&BB] = newDom; changed = true; }
+    }
   }
+  return dom;
+}
+
+static std::map<const BasicBlock *, unsigned>
+computeLoopDepths(const Function &F) {
+  auto dom = computeDominators(F);
+  std::set<const BasicBlock *> loopHeaders;
+  for (auto &BB : F)
+    for (const BasicBlock *succ : successors(&BB))
+      if (dom[&BB].count(succ))
+        loopHeaders.insert(succ);
+  std::map<const BasicBlock *, unsigned> depths;
+  for (auto &BB : F) {
+    unsigned depth = 0;
+    for (const BasicBlock *header : loopHeaders)
+      if (dom[&BB].count(header))
+        depth++;
+    depths[&BB] = depth;
+  }
+  return depths;
+}
+
+static double depthToWeight(unsigned depth) {
+  return std::pow(10.0, static_cast<double>(depth));
+}
+
+//===----------------------------------------------------------------------===//
+// EnergyModel
+//===----------------------------------------------------------------------===//
+struct EnergyModel {
+  std::string archName;
+  std::string source;
+  std::map<std::string, double> costs;
+
+  void loadDefaults(StringRef arch) {
+    source = "default";
+    if (arch.contains("x86") || arch.contains("amd64")) {
+      archName = "x86_64";
+      costs = {{"Integer",1.0},{"FloatScalar",1.8},{"FloatVector",3.0},
+               {"Memory",2.5},{"Branch",2.0},{"Call",3.5},{"Other",0.1}};
+    } else {
+      archName = "aarch64";
+      costs = {{"Integer",1.0},{"FloatScalar",1.5},{"FloatVector",2.5},
+               {"Memory",2.0},{"Branch",1.5},{"Call",3.0},{"Other",0.1}};
+    }
+  }
+
+  double cost(InstrCategory C) const {
+    auto it = costs.find(categoryKey(C).str());
+    return (it != costs.end()) ? it->second : 0.1;
+  }
+};
+
+static std::string detectArch(const Module &M) {
+  Triple T(M.getTargetTriple());
+  switch (T.getArch()) {
+    case Triple::aarch64:
+    case Triple::aarch64_be: return "aarch64";
+    case Triple::x86_64:
+    case Triple::x86:        return "x86_64";
+    default:                 return "aarch64";
+  }
+}
+
+static EnergyModel loadModel(StringRef jsonPath, StringRef arch) {
+  EnergyModel model;
+  auto bufOrErr = MemoryBuffer::getFile(jsonPath);
+  if (!bufOrErr) {
+    errs() << "[EnergyPass] Warning: cannot open " << jsonPath
+           << " — using built-in defaults\n";
+    model.loadDefaults(arch);
+    return model;
+  }
+  auto parsed = json::parse((*bufOrErr)->getBuffer());
+  if (!parsed) {
+    errs() << "[EnergyPass] Warning: JSON parse error — using built-in defaults\n";
+    model.loadDefaults(arch);
+    return model;
+  }
+  auto *root    = parsed->getAsObject();
+  auto *archs   = root  ? root->getObject("architectures") : nullptr;
+  auto *archObj = archs ? archs->getObject(arch)           : nullptr;
+  if (!archObj) {
+    errs() << "[EnergyPass] Warning: arch '" << arch
+           << "' not in model — using built-in defaults\n";
+    model.loadDefaults(arch);
+    return model;
+  }
+  model.archName = arch.str();
+  model.source   = "json";
+  for (auto &kv : *archObj)
+    if (auto v = kv.second.getAsNumber())
+      model.costs[kv.first.str()] = *v;
+  return model;
+}
+
+//===----------------------------------------------------------------------===//
+// Result structs
+//===----------------------------------------------------------------------===//
+struct BlockResult {
+  std::string name;
+  unsigned    instrCount      = 0;
+  double      staticEnergy    = 0.0;
+  double      weightedEnergy  = 0.0;
+  double      frequencyWeight = 1.0;
+  unsigned    loopDepth       = 0;
+  std::map<InstrCategory, unsigned> categoryCounts;
+  std::string srcFile;
+  unsigned    srcLine         = 0;
+  unsigned    srcCol          = 0;
+  const Instruction *firstDebugInstr = nullptr;
+};
+
+struct FunctionResult {
+  std::string name;
+  std::string arch;
+  std::string modelSource;
+  unsigned    blockCount     = 0;
+  unsigned    instrCount     = 0;
+  double      staticEnergy   = 0.0;
+  double      weightedEnergy = 0.0;
+  std::map<InstrCategory, unsigned> categoryCounts;
+  std::map<InstrCategory, double>   weightedCosts;
+  std::vector<BlockResult>          blocks;
+};
+
+//===----------------------------------------------------------------------===//
+// Formatting helpers
+//===----------------------------------------------------------------------===//
+static std::string fmt(double v, int prec = 4) {
+  std::ostringstream ss;
+  ss << std::fixed << std::setprecision(prec) << v;
+  return ss.str();
+}
+
+static std::string pct(double part, double total) {
+  if (total == 0.0) return "  0.0%";
+  std::ostringstream ss;
+  ss << std::fixed << std::setprecision(1) << (100.0 * part / total) << "%";
+  return ss.str();
+}
+
+static void printSeparator(unsigned width = 62) {
+  errs() << "  " << std::string(width, '-') << "\n";
+}
+
+//===----------------------------------------------------------------------===//
+// Per-block analysis
+//===----------------------------------------------------------------------===//
+static BlockResult analyseBlock(
+    const BasicBlock &BB,
+    const EnergyModel &model,
+    const std::map<const BasicBlock *, unsigned> &depths) {
+
+  BlockResult result;
+  auto dit = depths.find(&BB);
+  result.loopDepth       = (dit != depths.end()) ? dit->second : 0;
+  result.frequencyWeight = depthToWeight(result.loopDepth);
+
+  if (BB.hasName())
+    result.name = BB.getName().str();
+  else {
+    std::string tmp;
+    raw_string_ostream rso(tmp);
+    BB.printAsOperand(rso, false);
+    result.name = rso.str();
+  }
+
+  for (auto &I : BB) {
+    if (const DebugLoc &DL = I.getDebugLoc()) {
+      if (result.srcLine == 0) {
+        result.srcLine         = DL.getLine();
+        result.srcCol          = DL.getCol();
+        result.firstDebugInstr = &I;
+        if (auto *scope = DL->getScope())
+          result.srcFile = scope->getFilename().str();
+      }
+    }
+    InstrCategory cat = classify(I);
+    result.categoryCounts[cat]++;
+    result.staticEnergy += model.cost(cat);
+    result.instrCount++;
+  }
+
+  result.weightedEnergy = result.staticEnergy * result.frequencyWeight;
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Stderr report (preserved from Phase 7)
+//===----------------------------------------------------------------------===//
+static void printBlockResult(const BlockResult &B, const EnergyModel &model) {
+  errs() << "\n  [Block: " << B.name << "]";
+  if (B.srcLine > 0)
+    errs() << "  src=" << B.srcFile << ":" << B.srcLine;
+  errs() << "\n"
+         << "    loop-depth="     << B.loopDepth
+         << "  freq-weight="      << fmt(B.frequencyWeight, 1)
+         << "  static-energy="    << fmt(B.staticEnergy)
+         << "  weighted-energy="  << fmt(B.weightedEnergy) << "\n";
+  if (B.categoryCounts.empty()) return;
+  errs() << "    Category       Count  Static    Weighted   %W-Total\n";
+  errs() << "    " << std::string(54, '-') << "\n";
+  for (auto cat : ALL_CATEGORIES) {
+    auto it = B.categoryCounts.find(cat);
+    if (it == B.categoryCounts.end() || it->second == 0) continue;
+    double sc = it->second * model.cost(cat);
+    double wc = sc * B.frequencyWeight;
+    errs() << "    " << categoryName(cat)
+           << "  " << it->second
+           << "      " << fmt(sc)
+           << "    "   << fmt(wc)
+           << "    "   << pct(wc, B.weightedEnergy) << "\n";
+  }
+}
+
+static void printFunctionResult(const FunctionResult &F,
+                                const EnergyModel &model) {
+  errs() << "\n";
+  printSeparator();
+  errs() << "  [Function: " << F.name << "]\n";
+  errs() << "  arch="    << F.arch
+         << "  model="   << F.modelSource
+         << "  blocks="  << F.blockCount
+         << "  instrs="  << F.instrCount << "\n";
+  errs() << "  static-energy="   << fmt(F.staticEnergy)
+         << "  weighted-energy=" << fmt(F.weightedEnergy) << "\n";
+  printSeparator();
+  for (auto &B : F.blocks)
+    printBlockResult(B, model);
+  errs() << "\n  [Function Summary: " << F.name << "]\n";
+  errs() << "  Category       Count  Static    Weighted   %W-Total\n";
+  printSeparator(54);
+  for (auto cat : ALL_CATEGORIES) {
+    auto cit = F.categoryCounts.find(cat);
+    if (cit == F.categoryCounts.end() || cit->second == 0) continue;
+    double sc = cit->second * model.cost(cat);
+    auto wit  = F.weightedCosts.find(cat);
+    double wc = (wit != F.weightedCosts.end()) ? wit->second : sc;
+    errs() << "  " << categoryName(cat)
+           << "  " << cit->second
+           << "      " << fmt(sc)
+           << "    "   << fmt(wc)
+           << "    "   << pct(wc, F.weightedEnergy) << "\n";
+  }
+  printSeparator(54);
+  errs() << "  Total instrs          : " << F.instrCount << "\n";
+  errs() << "  Total static energy   : " << fmt(F.staticEnergy)   << "\n";
+  errs() << "  Total weighted energy : " << fmt(F.weightedEnergy)
+         << " (relative units)\n";
+  errs() << "  Frequency method      : loop-depth proxy (10^depth)\n";
+}
+
+//===----------------------------------------------------------------------===//
+// Remark emission via LLVMContext::diagnose()
+//
+// OptimizationRemarkAnalysis is a DiagnosticInfo subclass. Passing it
+// directly to LLVMContext::diagnose() bypasses the FAM entirely while
+// still hooking into opt's remark filtering (-pass-remarks-analysis=)
+// and YAML output (-pass-remarks-output=).
+//===----------------------------------------------------------------------===//
+static void emitFunctionRemark(const FunctionResult &F,
+                               const Function &Fn) {
+  // Find first instruction with a debug location
+  DebugLoc fnLoc;
+  const BasicBlock *entryBB = &Fn.getEntryBlock();
+  for (auto &I : *entryBB)
+    if (I.getDebugLoc()) { fnLoc = I.getDebugLoc(); break; }
+  if (!fnLoc) return;
+
+  std::string msg;
+  raw_string_ostream rso(msg);
+  rso << "function '" << F.name << "'"
+      << " arch=" << F.arch
+      << " static-energy=" << fmt(F.staticEnergy)
+      << " weighted-energy=" << fmt(F.weightedEnergy)
+      << " instrs=" << F.instrCount;
+
+  OptimizationRemarkAnalysis R("energy", "FunctionEnergy", fnLoc, entryBB);
+  R << rso.str();
+  Fn.getContext().diagnose(R);
+}
+
+static void emitBlockRemark(const BlockResult &B,
+                            const Function &Fn) {
+  if (B.loopDepth == 0 || !B.firstDebugInstr) return;
+
+  std::string msg;
+  raw_string_ostream rso(msg);
+  rso << "hot block '" << B.name << "'"
+      << " loop-depth=" << B.loopDepth
+      << " freq-weight=" << fmt(B.frequencyWeight, 1)
+      << " static-energy=" << fmt(B.staticEnergy)
+      << " weighted-energy=" << fmt(B.weightedEnergy);
+
+  OptimizationRemarkAnalysis R(
+      "energy", "HotBlock",
+      B.firstDebugInstr->getDebugLoc(),
+      B.firstDebugInstr->getParent());
+  R << rso.str();
+  Fn.getContext().diagnose(R);
 }
 
 //===----------------------------------------------------------------------===//
@@ -110,54 +438,72 @@ static double placeholderCost(InstrCategory C) {
 //===----------------------------------------------------------------------===//
 namespace {
 
+struct ModuleAccumulator {
+  unsigned funcCount      = 0;
+  unsigned instrCount     = 0;
+  double   staticEnergy   = 0.0;
+  double   weightedEnergy = 0.0;
+};
+
 struct EnergyPass : public PassInfoMixin<EnergyPass> {
+  std::string modelPath;
+  std::shared_ptr<ModuleAccumulator> modAcc;
+
+  EnergyPass(std::string path, std::shared_ptr<ModuleAccumulator> acc)
+      : modelPath(std::move(path)), modAcc(std::move(acc)) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
-    // Skip declarations (extern / intrinsic — no body to analyse)
     if (F.isDeclaration())
       return PreservedAnalyses::all();
 
-    std::map<InstrCategory, unsigned> counts;
-    double totalEnergy = 0.0;
-    unsigned totalInstrs = 0;
+    // No FAM analysis queries — avoids duplicate-symbol crashes on macOS
+    auto depths = computeLoopDepths(F);
 
-    for (auto &BB : F)
-      for (auto &I : BB) {
-        InstrCategory cat = classify(I);
-        counts[cat]++;
-        totalEnergy += placeholderCost(cat);
-        totalInstrs++;
+    const Module *M   = F.getParent();
+    std::string arch  = detectArch(*M);
+    EnergyModel model = loadModel(modelPath, arch);
+
+    FunctionResult result;
+    result.name        = F.getName().str();
+    result.arch        = model.archName;
+    result.modelSource = model.source;
+    result.blockCount  = F.size();
+
+    for (auto &BB : F) {
+      BlockResult br = analyseBlock(BB, model, depths);
+      result.staticEnergy   += br.staticEnergy;
+      result.weightedEnergy += br.weightedEnergy;
+      result.instrCount     += br.instrCount;
+      for (auto &[cat, cnt] : br.categoryCounts) {
+        result.categoryCounts[cat] += cnt;
+        result.weightedCosts[cat] += cnt * model.cost(cat) * br.frequencyWeight;
       }
+      result.blocks.push_back(std::move(br));
+    }
 
-    // Print report to stderr so it doesn't interfere with IR output on stdout.
-    // This will be replaced by LLVM Optimization Remarks in Phase 8.
-    errs() << "\n[EnergyPass] " << F.getName()
-           << "  basic-blocks=" << F.size() << "\n";
-    errs() << "  Category       Count    Cost\n";
-    errs() << "  ---------------------------------\n";
-    for (auto &[cat, count] : counts)
-      errs() << "  " << categoryName(cat)
-             << "    " << count
-             << "        " << (count * placeholderCost(cat)) << "\n";
-    errs() << "  ---------------------------------\n";
-    errs() << "  Total instrs : " << totalInstrs << "\n";
-    errs() << "  Total energy : " << totalEnergy << " (relative units)\n";
+    modAcc->funcCount++;
+    modAcc->instrCount     += result.instrCount;
+    modAcc->staticEnergy   += result.staticEnergy;
+    modAcc->weightedEnergy += result.weightedEnergy;
 
-    // Analysis-only pass — we never modify IR, so all analyses remain valid
+    // Stderr report — always emitted
+    printFunctionResult(result, model);
+
+    // Remarks — only active when -pass-remarks-analysis=energy is set
+    emitFunctionRemark(result, F);
+    for (auto &B : result.blocks)
+      emitBlockRemark(B, F);
+
     return PreservedAnalyses::all();
   }
 
-  // Run even on functions marked optnone (e.g. compiled with -O0)
   static bool isRequired() { return true; }
 };
 
 } // anonymous namespace
 
 //===----------------------------------------------------------------------===//
-// Plugin Registration
-//
-// These two symbols are what opt looks for when loading a pass plugin.
-// After loading, "energy-pass" becomes available to the -passes= flag.
+// Plugin Registration — no FAM analysis registration needed
 //===----------------------------------------------------------------------===//
 llvm::PassPluginLibraryInfo getEnergyPassPluginInfo() {
   return {
@@ -166,16 +512,20 @@ llvm::PassPluginLibraryInfo getEnergyPassPluginInfo() {
       PB.registerPipelineParsingCallback(
         [](StringRef Name, FunctionPassManager &FPM,
            ArrayRef<PassBuilder::PipelineElement>) -> bool {
-          if (Name == "energy-pass") {
-            FPM.addPass(EnergyPass());
-            return true;
-          }
-          return false;
+          if (Name != "energy-pass")
+            return false;
+          std::string modelPath;
+          if (const char *env = std::getenv("ENERGY_MODEL_PATH"))
+            modelPath = env;
+          else
+            modelPath = "data/energy_model.json";
+          auto acc = std::make_shared<ModuleAccumulator>();
+          FPM.addPass(EnergyPass(modelPath, acc));
+          return true;
         });
     }};
 }
 
-// Weak linkage lets opt load this as a dynamic plugin
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo
 llvmGetPassPluginInfo() {
   return getEnergyPassPluginInfo();
