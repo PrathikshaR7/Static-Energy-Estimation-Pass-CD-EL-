@@ -7,7 +7,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Enforces Node.js 24 execution rules to satisfy runner requirements
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -89,42 +88,51 @@ jobs:
 
     - name: Run test suite
       run: |
-        PASS=$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so
-        REMARKS_DIR=$GITHUB_WORKSPACE/remarks
-        export ENERGY_MODEL_PATH=$GITHUB_WORKSPACE/data/energy_model.json
+        PASS="$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so"
+        REMARKS_DIR="$GITHUB_WORKSPACE/remarks"
+        export ENERGY_MODEL_PATH="$GITHUB_WORKSPACE/data/energy_model.json"
 
         PASS_OK=0
         PASS_FAIL=0
 
-        # Loops through both numbered test cases and standard .c files like hello.c
+        # Run loop explicitly safely checking file existence
         for src in test/*.c; do
           [ -e "$src" ] || continue
           name=$(basename "${src%.c}")
           echo "========================================"
-          echo " Processing Test: $name"
+          echo " Running Pass Validation on: $name"
           echo "========================================"
 
-          # Fixed paths targeting standard apt installation binaries directly
-          /usr/bin/clang-17 -O1 -g -emit-llvm \
-            "$src" -c -o /tmp/${name}.bc 2>&1
+          # 1. Compile cleanly to bitcode
+          if ! /usr/bin/clang-17 -O1 -g -emit-llvm "$src" -c -o "/tmp/${name}.bc" 2>&1; then
+            echo "  [FAIL] Compilation failed for $name"
+            PASS_FAIL=$((PASS_FAIL+1))
+            continue
+          fi
 
+          # 2. Run your out-of-tree pass pipeline 
           if /usr/bin/opt-17 \
               -load-pass-plugin="$PASS" \
               -passes="energy-pass" \
               -pass-remarks-analysis=energy \
               -pass-remarks-output="${REMARKS_DIR}/${name}_remarks.yml" \
-              -disable-output /tmp/${name}.bc 2>&1; then
-            echo "  [PASS] $name"
+              -disable-output "/tmp/${name}.bc" 2>&1; then
+            echo "  [PASS] Successfully completed pass analysis for: $name"
             PASS_OK=$((PASS_OK+1))
           else
-            echo "  [FAIL] $name"
+            echo "  [FAIL] Plugin analysis execution cracked on: $name"
             PASS_FAIL=$((PASS_FAIL+1))
           fi
         done
 
-        echo "Results: $PASS_OK passed, $PASS_FAIL failed"
-        ls -lh "$REMARKS_DIR/"
-        [ $PASS_FAIL -eq 0 ]
+        echo "Final Test Summary: $PASS_OK passed, $PASS_FAIL failed"
+        ls -la "$REMARKS_DIR/"
+        
+        # Enforce hard step failure if any test file fell through
+        if [ $PASS_FAIL -ne 0 ]; then
+          echo "CI Suite failed due to test discrepancies."
+          exit 1
+        fi
 
     - name: Run evaluation
       run: |
@@ -138,4 +146,4 @@ jobs:
       with:
         name: energy-remarks
         path: remarks/
-        if-no-files-found: error
+        if-no-files-found: warn # Changes to warning so empty runs do not obscure the true build error logs
