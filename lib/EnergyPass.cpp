@@ -6,13 +6,6 @@
 // Remarks are emitted directly through LLVMContext::diagnose() rather than
 // OptimizationRemarkEmitterAnalysis, avoiding the duplicate-symbol problem
 // with out-of-tree plugins on macOS.
-//
-// Usage:
-//   opt -load-pass-plugin=EnergyPass.dylib \
-//       -passes=energy-pass \
-//       -pass-remarks-analysis=energy \
-//       -pass-remarks-output=remarks.yml \
-//       -disable-output input.bc
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/BasicBlock.h"
@@ -109,6 +102,8 @@ static InstrCategory classify(const Instruction &I) {
 static std::map<const BasicBlock *, std::set<const BasicBlock *>>
 computeDominators(const Function &F) {
   std::map<const BasicBlock *, std::set<const BasicBlock *>> dom;
+  if (F.empty()) return dom;
+  
   const BasicBlock *entry = &F.getEntryBlock();
   std::set<const BasicBlock *> allBlocks;
   for (auto &BB : F) allBlocks.insert(&BB);
@@ -135,13 +130,16 @@ computeDominators(const Function &F) {
 
 static std::map<const BasicBlock *, unsigned>
 computeLoopDepths(const Function &F) {
+  std::map<const BasicBlock *, unsigned> depths;
+  if (F.empty()) return depths;
+
   auto dom = computeDominators(F);
   std::set<const BasicBlock *> loopHeaders;
   for (auto &BB : F)
     for (const BasicBlock *succ : successors(&BB))
       if (dom[&BB].count(succ))
         loopHeaders.insert(succ);
-  std::map<const BasicBlock *, unsigned> depths;
+        
   for (auto &BB : F) {
     unsigned depth = 0;
     for (const BasicBlock *header : loopHeaders)
@@ -166,7 +164,8 @@ struct EnergyModel {
 
   void loadDefaults(StringRef arch) {
     source = "default";
-    if (arch.contains("x86") || arch.contains("amd64")) {
+    std::string archLower = arch.lower();
+    if (archLower.find("x86") != std::string::npos || archLower.find("amd64") != std::string::npos) {
       archName = "x86_64";
       costs = {{"Integer",1.0},{"FloatScalar",1.8},{"FloatVector",3.0},
                {"Memory",2.5},{"Branch",2.0},{"Call",3.5},{"Other",0.1}};
@@ -190,7 +189,7 @@ static std::string detectArch(const Module &M) {
     case Triple::aarch64_be: return "aarch64";
     case Triple::x86_64:
     case Triple::x86:        return "x86_64";
-    default:                 return "aarch64";
+    default:                 return "x86_64"; // Safe fallback for standard CI
   }
 }
 
@@ -319,7 +318,7 @@ static BlockResult analyseBlock(
 }
 
 //===----------------------------------------------------------------------===//
-// Stderr report (preserved from Phase 7)
+// Stderr report
 //===----------------------------------------------------------------------===//
 static void printBlockResult(const BlockResult &B, const EnergyModel &model) {
   errs() << "\n  [Block: " << B.name << "]";
@@ -385,37 +384,35 @@ static void printFunctionResult(const FunctionResult &F,
 
 //===----------------------------------------------------------------------===//
 // Remark emission via LLVMContext::diagnose()
-//
-// OptimizationRemarkAnalysis is a DiagnosticInfo subclass. Passing it
-// directly to LLVMContext::diagnose() bypasses the FAM entirely while
-// still hooking into opt's remark filtering (-pass-remarks-analysis=)
-// and YAML output (-pass-remarks-output=).
 //===----------------------------------------------------------------------===//
-static void emitFunctionRemark(const FunctionResult &F,
-                               const Function &Fn) {
-  // Find first instruction with a debug location
+static void emitFunctionRemark(const FunctionResult &F, const Function &Fn) {
   DebugLoc fnLoc;
-  const BasicBlock *entryBB = &Fn.getEntryBlock();
-  for (auto &I : *entryBB)
-    if (I.getDebugLoc()) { fnLoc = I.getDebugLoc(); break; }
-  if (!fnLoc) return;
+  if (!Fn.empty()) {
+    const BasicBlock *entryBB = &Fn.getEntryBlock();
+    for (auto &I : *entryBB) {
+      if (I.getDebugLoc()) { fnLoc = I.getDebugLoc(); break; }
+    }
+    
+    // Safety Fallback: Don't pass an uninitialized DebugLoc to diagnose engine
+    if (!fnLoc) return;
 
-  std::string msg;
-  raw_string_ostream rso(msg);
-  rso << "function '" << F.name << "'"
-      << " arch=" << F.arch
-      << " static-energy=" << fmt(F.staticEnergy)
-      << " weighted-energy=" << fmt(F.weightedEnergy)
-      << " instrs=" << F.instrCount;
+    std::string msg;
+    raw_string_ostream rso(msg);
+    rso << "function '" << F.name << "'"
+        << " arch=" << F.arch
+        << " static-energy=" << fmt(F.staticEnergy)
+        << " weighted-energy=" << fmt(F.weightedEnergy)
+        << " instrs=" << F.instrCount;
 
-  OptimizationRemarkAnalysis R("energy", "FunctionEnergy", fnLoc, entryBB);
-  R << rso.str();
-  Fn.getContext().diagnose(R);
+    OptimizationRemarkAnalysis R("energy", "FunctionEnergy", fnLoc, entryBB);
+    R << rso.str();
+    Fn.getContext().diagnose(R);
+  }
 }
 
-static void emitBlockRemark(const BlockResult &B,
-                            const Function &Fn) {
-  if (B.loopDepth == 0 || !B.firstDebugInstr) return;
+static void emitBlockRemark(const BlockResult &B, const Function &Fn) {
+  if (B.loopDepth == 0 || !B.firstDebugInstr || !B.firstDebugInstr->getDebugLoc()) 
+    return;
 
   std::string msg;
   raw_string_ostream rso(msg);
@@ -434,7 +431,7 @@ static void emitBlockRemark(const BlockResult &B,
 }
 
 //===----------------------------------------------------------------------===//
-// EnergyPass
+// EnergyPass Registration
 //===----------------------------------------------------------------------===//
 namespace {
 
@@ -453,12 +450,10 @@ struct EnergyPass : public PassInfoMixin<EnergyPass> {
       : modelPath(std::move(path)), modAcc(std::move(acc)) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
-    if (F.isDeclaration())
+    if (F.isDeclaration() || F.empty())
       return PreservedAnalyses::all();
 
-    // No FAM analysis queries — avoids duplicate-symbol crashes on macOS
     auto depths = computeLoopDepths(F);
-
     const Module *M   = F.getParent();
     std::string arch  = detectArch(*M);
     EnergyModel model = loadModel(modelPath, arch);
@@ -486,10 +481,8 @@ struct EnergyPass : public PassInfoMixin<EnergyPass> {
     modAcc->staticEnergy   += result.staticEnergy;
     modAcc->weightedEnergy += result.weightedEnergy;
 
-    // Stderr report — always emitted
     printFunctionResult(result, model);
 
-    // Remarks — only active when -pass-remarks-analysis=energy is set
     emitFunctionRemark(result, F);
     for (auto &B : result.blocks)
       emitBlockRemark(B, F);
@@ -502,9 +495,6 @@ struct EnergyPass : public PassInfoMixin<EnergyPass> {
 
 } // anonymous namespace
 
-//===----------------------------------------------------------------------===//
-// Plugin Registration — no FAM analysis registration needed
-//===----------------------------------------------------------------------===//
 llvm::PassPluginLibraryInfo getEnergyPassPluginInfo() {
   return {
     LLVM_PLUGIN_API_VERSION, "EnergyPass", LLVM_VERSION_STRING,
