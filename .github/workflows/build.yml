@@ -34,26 +34,33 @@ jobs:
     - name: Create output directories
       run: |
         mkdir -p "$GITHUB_WORKSPACE/remarks"
-        mkdir -p /tmp/data
-        cp data/energy_model.json /tmp/data/energy_model.json 2>/dev/null || true
 
-    - name: Fix Root CMakeLists.txt
+    - name: Generate Root CMakeLists.txt
       run: |
         cat > CMakeLists.txt << 'CMAKE'
-        cmake_minimum_required(VERSION 3.20)
-        project(StaticEnergyEstimationPass LANGUAGES CXX)
+        cmake_minimum_required(VERSION 3.23)
+        # Explicitly enabling C and CXX early stops the CMake 3.31 check_source_compiles crash
+        project(EnergyPass C CXX)
 
-        find_package(LLVM REQUIRED CONFIG PATHS "/usr/lib/llvm-17/lib/cmake/llvm")
+        set(LLVM_DIR "/usr/lib/llvm-17/lib/cmake/llvm" CACHE PATH "LLVM cmake dir")
+
+        find_package(LLVM REQUIRED CONFIG)
+        message(STATUS "Found LLVM ${LLVM_VERSION} at ${LLVM_DIR}")
+
         list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
         include(AddLLVM)
 
-        include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
         add_definitions(${LLVM_DEFINITIONS})
+        include_directories(${LLVM_INCLUDE_DIRS})
+
+        set(CMAKE_CXX_STANDARD 17)
+        set(CMAKE_CXX_STANDARD_REQUIRED ON)
+        set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
         add_subdirectory(lib)
         CMAKE
 
-    - name: Fix lib/CMakeLists.txt
+    - name: Generate lib/CMakeLists.txt
       run: |
         cat > lib/CMakeLists.txt << 'CMAKE'
         add_llvm_pass_plugin(EnergyPass
