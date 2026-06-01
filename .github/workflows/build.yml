@@ -34,26 +34,24 @@ jobs:
     - name: Create output directories
       run: |
         mkdir -p "$GITHUB_WORKSPACE/remarks"
-        # Mirror the energy model to a safe static system path as an ultimate fallback
         mkdir -p /tmp/data
-        cp data/energy_model.json /tmp/data/energy_model.json
+        cp data/energy_model.json /tmp/data/energy_model.json 2>/dev/null || true
 
     - name: Patch lib/CMakeLists.txt
       run: |
         cat > lib/CMakeLists.txt << 'CMAKE'
         cmake_minimum_required(VERSION 3.20)
-        project(EnergyPassPlugin LANGUAGES CXX)
+        project(EnergyPassProject LANGUAGES CXX)
 
-        # 1. Ensure LLVM cmake modules are accessible
-        find_package(LLVM REQUIRED CONFIG)
+        # Force CMake to discover LLVM's build macro libraries
+        find_package(LLVM REQUIRED CONFIG PATHS "/usr/lib/llvm-17/lib/cmake/llvm")
         list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
         include(AddLLVM)
 
-        # 2. Add compile definitions and include headers
         include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
         add_definitions(${LLVM_DEFINITIONS})
 
-        # 3. Safely define out-of-tree pass plugin
+        # Now CMake knows exactly what this command means
         add_llvm_pass_plugin(EnergyPass
           EnergyPass.cpp
         )
@@ -99,13 +97,12 @@ jobs:
     - name: CMake Build
       run: |
         cmake --build --preset linux-llvm17 --verbose
+        ls -lh pass-build/linux/lib/EnergyPass.so
 
     - name: Run test suite
       run: |
         PASS="$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so"
         REMARKS_DIR="$GITHUB_WORKSPACE/remarks"
-        
-        # Set all potential paths your plugin fallback checks
         export ENERGY_MODEL_PATH="$GITHUB_WORKSPACE/data/energy_model.json"
 
         PASS_OK=0
@@ -115,31 +112,27 @@ jobs:
           [ -e "$src" ] || continue
           name=$(basename "${src%.c}")
           echo "========================================"
-          echo " Processing: $name"
+          echo " Testing Bitcode Analysis: $name"
           echo "========================================"
 
-          # Compile cleanly with explicit flags
-          /usr/bin/clang-17 -O1 -g -Xclang -disable-llvm-passes -emit-llvm "$src" -c -o "/tmp/${name}.bc"
+          /usr/bin/clang-17 -O1 -g -emit-llvm "$src" -c -o "/tmp/${name}.bc"
 
-          # Run the optimization pass and force verbose error output to console if it fails
           if /usr/bin/opt-17 \
               -load-pass-plugin="$PASS" \
               -passes="energy-pass" \
               -pass-remarks-analysis=energy \
               -pass-remarks-output="${REMARKS_DIR}/${name}_remarks.yml" \
               -disable-output "/tmp/${name}.bc"; then
-            echo "  [PASS] $name"
-            PASS_OK=$((PASS_OK+1))
+            echo "  [PASS] $name optimized successfully"
+            PASS_OK=$Shift((PASS_OK+1))
           else
-            echo "  [FAIL] $name crashed or returned non-zero during pass parsing"
+            echo "  [FAIL] $name crashed or analysis processing broke"
             PASS_FAIL=$((PASS_FAIL+1))
           fi
         done
 
-        echo "Results: $PASS_OK passed, $PASS_FAIL failed"
-        
-        # Prevent silent failures from stopping step diagnostic tracking
         if [ $PASS_FAIL -ne 0 ]; then
+          echo "Test phase broke execution constraints."
           exit 1
         fi
 
