@@ -23,8 +23,10 @@ jobs:
     # ── 2. Install LLVM 17 + tools ─────────────────────────────────────────
     - name: Install dependencies
       run: |
-        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-        sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main"
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+          | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+        sudo add-apt-repository \
+          "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main"
         sudo apt-get update
         sudo apt-get install -y \
           cmake ninja-build \
@@ -34,13 +36,26 @@ jobs:
         echo "LLVM version:"
         /usr/lib/llvm-17/bin/opt --version
 
-    # ── 3. Patch CMakeLists.txt for Linux (no local build/ tree needed) ────
-    - name: Patch CMakeLists for Linux
+    # ── 3. Patch lib/CMakeLists.txt ────────────────────────────────────────
+    #    Remove the DEPENDS intrinsics_gen line — that target only exists
+    #    inside an in-tree LLVM build and makes cmake configure fail when
+    #    using an installed LLVM package (llvm-17-dev).
+    - name: Patch lib/CMakeLists.txt
       run: |
-        sed -i 's|include_directories(${CMAKE_SOURCE_DIR}/build/include)||g' CMakeLists.txt
-        sed -i 's|include_directories(${CMAKE_SOURCE_DIR}/include)||g' CMakeLists.txt
-        echo "CMakeLists.txt after patch:"
-        cat CMakeLists.txt
+        cat > lib/CMakeLists.txt << 'CMAKE'
+        add_llvm_pass_plugin(EnergyPass
+          EnergyPass.cpp
+        )
+
+        target_link_libraries(EnergyPass PRIVATE
+          LLVMCore
+          LLVMSupport
+          LLVMPasses
+          LLVMAnalysis
+        )
+        CMAKE
+        echo "lib/CMakeLists.txt after patch:"
+        cat lib/CMakeLists.txt
 
     # ── 4. Write CMakeUserPresets.json ─────────────────────────────────────
     - name: Write CMakeUserPresets.json
@@ -71,7 +86,10 @@ jobs:
 
     # ── 5. Configure ───────────────────────────────────────────────────────
     - name: CMake Configure
-      run: cmake --preset linux-llvm17 -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
+      run: |
+        cmake --preset linux-llvm17 \
+          -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
+        echo "Configure exit: $?"
 
     # ── 6. Build ───────────────────────────────────────────────────────────
     - name: CMake Build
@@ -83,7 +101,6 @@ jobs:
     # ── 7. Run all 7 test cases ────────────────────────────────────────────
     - name: Run test suite
       run: |
-        set -e
         LLVM_BIN=/usr/lib/llvm-17/bin
         PASS=$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so
         REMARKS_DIR=$GITHUB_WORKSPACE/remarks
@@ -101,14 +118,14 @@ jobs:
           echo "========================================"
 
           $LLVM_BIN/clang-17 -O1 -g -emit-llvm \
-            "$src" -c -o /tmp/${name}.bc
+            "$src" -c -o /tmp/${name}.bc 2>&1
 
           if $LLVM_BIN/opt-17 \
               -load-pass-plugin="$PASS" \
               -passes="energy-pass" \
               -pass-remarks-analysis=energy \
               -pass-remarks-output="${REMARKS_DIR}/${name}_remarks.yml" \
-              -disable-output /tmp/${name}.bc; then
+              -disable-output /tmp/${name}.bc 2>&1; then
             echo "  [PASS] $name"
             PASS_OK=$((PASS_OK+1))
           else
@@ -121,31 +138,48 @@ jobs:
         echo "========================================"
         echo " Results: $PASS_OK passed, $PASS_FAIL failed"
         echo "========================================"
-        echo "Remarks files written:"
-        ls -lh "$REMARKS_DIR/" || echo "  (none)"
+        echo "Remarks written:"
+        ls -lh "$REMARKS_DIR/"
 
         [ $PASS_FAIL -eq 0 ]
 
     # ── 8. Patch and run evaluation script ────────────────────────────────
     - name: Run evaluation
       run: |
-        # evaluate.py hard-codes ~/Static-Energy-Estimation-Pass-CD-EL- and
-        # mac/windows LLVM paths. We patch it in-place for the CI environment.
-        sed -i \
-          "s|REPO   = os.path.expanduser.*|REPO = os.environ.get('REPO_ROOT', os.getcwd())|" \
-          scripts/evaluate.py
-        sed -i \
-          "s|PASS  = os.path.join(REPO, 'pass-build', 'mac-arm64'.*|PASS = os.path.join(REPO, 'pass-build', 'linux', 'lib', 'EnergyPass.so')|" \
-          scripts/evaluate.py
-        sed -i \
-          "s|CLANG = os.path.join(BUILD, 'bin', 'clang')|CLANG = '/usr/lib/llvm-17/bin/clang-17'|" \
-          scripts/evaluate.py
-        sed -i \
-          "s|OPT   = os.path.join(BUILD, 'bin', 'opt')|OPT   = '/usr/lib/llvm-17/bin/opt-17'|" \
-          scripts/evaluate.py
+        # evaluate.py hardcodes ~/Static-Energy-Estimation-Pass-CD-EL-
+        # and macOS/Windows LLVM paths — patch all four lines for Linux CI.
+        python3 - << 'PYEOF'
+        import re, pathlib
 
-        echo "--- Patched evaluate.py top section ---"
-        head -30 scripts/evaluate.py
+        p = pathlib.Path("scripts/evaluate.py")
+        src = p.read_text()
+
+        src = re.sub(
+            r"REPO\s*=\s*os\.path\.expanduser\([^\n]+\)",
+            "REPO = os.environ.get('REPO_ROOT', os.getcwd())",
+            src
+        )
+        src = re.sub(
+            r"PASS\s*=\s*os\.path\.join\(REPO,\s*'pass-build',\s*'mac-arm64'[^\n]+\)",
+            "PASS  = os.path.join(REPO, 'pass-build', 'linux', 'lib', 'EnergyPass.so')",
+            src
+        )
+        src = re.sub(
+            r"CLANG\s*=\s*os\.path\.join\(BUILD[^\n]+\n",
+            "CLANG = '/usr/lib/llvm-17/bin/clang-17'\n",
+            src
+        )
+        src = re.sub(
+            r"OPT\s*=\s*os\.path\.join\(BUILD[^\n]+\n",
+            "OPT   = '/usr/lib/llvm-17/bin/opt-17'\n",
+            src
+        )
+        p.write_text(src)
+        print("Patched successfully")
+        PYEOF
+
+        echo "--- Top of patched evaluate.py ---"
+        head -35 scripts/evaluate.py
 
         export REPO_ROOT=$GITHUB_WORKSPACE
         export ENERGY_MODEL_PATH=$GITHUB_WORKSPACE/data/energy_model.json
