@@ -7,22 +7,32 @@ Cross-platform: macOS + Windows
 import os, re, subprocess, sys, tempfile
 from collections import defaultdict
 
-REPO   = os.path.expanduser('~/Static-Energy-Estimation-Pass-CD-EL-')
+# Reads REPO_ROOT env var set by CI; falls back to this script's parent dir
+REPO   = os.environ.get('REPO_ROOT',
+         os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TMPDIR = tempfile.gettempdir()
 
 # Platform-specific paths
 if sys.platform == 'win32':
-    BUILD = os.path.join(REPO, 'build')
     PASS  = os.path.join(REPO, 'pass-build', 'windows-msvc',
                          'lib', 'EnergyPass.dll')
-    CLANG = os.path.join(BUILD, 'bin', 'clang.exe')
-    OPT   = os.path.join(BUILD, 'bin', 'opt.exe')
-else:
-    BUILD = os.path.join(REPO, 'build')
+    CLANG = os.environ.get('CLANG_BIN',
+            os.path.join(REPO, 'build', 'bin', 'clang.exe'))
+    OPT   = os.environ.get('OPT_BIN',
+            os.path.join(REPO, 'build', 'bin', 'opt.exe'))
+elif sys.platform == 'darwin':
     PASS  = os.path.join(REPO, 'pass-build', 'mac-arm64',
                          'lib', 'EnergyPass.dylib')
-    CLANG = os.path.join(BUILD, 'bin', 'clang')
-    OPT   = os.path.join(BUILD, 'bin', 'opt')
+    CLANG = os.environ.get('CLANG_BIN',
+            os.path.join(REPO, 'build', 'bin', 'clang'))
+    OPT   = os.environ.get('OPT_BIN',
+            os.path.join(REPO, 'build', 'bin', 'opt'))
+else:
+    # Linux — GitHub Actions CI
+    PASS  = os.path.join(REPO, 'pass-build', 'linux',
+                         'lib', 'EnergyPass.so')
+    CLANG = os.environ.get('CLANG_BIN', '/usr/lib/llvm-17/bin/clang-17')
+    OPT   = os.environ.get('OPT_BIN',   '/usr/lib/llvm-17/bin/opt-17')
 
 REFERENCE = {
     'Integer':     (1.0,  1.0,  'Baseline — 1 cycle ALU ops [1,2]'),
