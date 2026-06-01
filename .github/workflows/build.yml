@@ -7,6 +7,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
@@ -52,11 +55,11 @@ jobs:
               "binaryDir": "${sourceDir}/pass-build/linux",
               "generator": "Ninja",
               "cacheVariables": {
-                "CMAKE_BUILD_TYPE":             "RelWithDebInfo",
-                "CMAKE_EXPORT_COMPILE_COMMANDS":"ON",
-                "LLVM_DIR":                     "/usr/lib/llvm-17/lib/cmake/llvm",
-                "CMAKE_CXX_COMPILER":           "/usr/bin/clang++-17",
-                "CMAKE_C_COMPILER":             "/usr/bin/clang-17"
+                "CMAKE_BUILD_TYPE":              "RelWithDebInfo",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "LLVM_DIR":                      "/usr/lib/llvm-17/lib/cmake/llvm",
+                "CMAKE_CXX_COMPILER":            "/usr/bin/clang++-17",
+                "CMAKE_C_COMPILER":              "/usr/bin/clang-17"
               }
             }
           ],
@@ -68,9 +71,7 @@ jobs:
 
     # ── 5. Configure ───────────────────────────────────────────────────────
     - name: CMake Configure
-      run: |
-        cmake --preset linux-llvm17 -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
-        echo "Configure exit code: $?"
+      run: cmake --preset linux-llvm17 -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
 
     # ── 6. Build ───────────────────────────────────────────────────────────
     - name: CMake Build
@@ -82,12 +83,13 @@ jobs:
     # ── 7. Run all 7 test cases ────────────────────────────────────────────
     - name: Run test suite
       run: |
+        set -e
         LLVM_BIN=/usr/lib/llvm-17/bin
-        PASS=$PWD/pass-build/linux/lib/EnergyPass.so
-        export ENERGY_MODEL_PATH=$PWD/data/energy_model.json
-        # Remarks go into workspace so the upload-artifact glob works reliably
-        REMARKS_DIR=$PWD/remarks
+        PASS=$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so
+        REMARKS_DIR=$GITHUB_WORKSPACE/remarks
         mkdir -p "$REMARKS_DIR"
+        export ENERGY_MODEL_PATH=$GITHUB_WORKSPACE/data/energy_model.json
+
         PASS_OK=0
         PASS_FAIL=0
 
@@ -99,16 +101,14 @@ jobs:
           echo "========================================"
 
           $LLVM_BIN/clang-17 -O1 -g -emit-llvm \
-            "$src" -c -o /tmp/${name}.bc 2>&1
+            "$src" -c -o /tmp/${name}.bc
 
-          $LLVM_BIN/opt-17 \
-            -load-pass-plugin="$PASS" \
-            -passes="energy-pass" \
-            -pass-remarks-analysis=energy \
-            -pass-remarks-output="${REMARKS_DIR}/${name}_remarks.yml" \
-            -disable-output /tmp/${name}.bc 2>&1
-
-          if [ $? -eq 0 ]; then
+          if $LLVM_BIN/opt-17 \
+              -load-pass-plugin="$PASS" \
+              -passes="energy-pass" \
+              -pass-remarks-analysis=energy \
+              -pass-remarks-output="${REMARKS_DIR}/${name}_remarks.yml" \
+              -disable-output /tmp/${name}.bc; then
             echo "  [PASS] $name"
             PASS_OK=$((PASS_OK+1))
           else
@@ -121,22 +121,35 @@ jobs:
         echo "========================================"
         echo " Results: $PASS_OK passed, $PASS_FAIL failed"
         echo "========================================"
+        echo "Remarks files written:"
+        ls -lh "$REMARKS_DIR/" || echo "  (none)"
+
         [ $PASS_FAIL -eq 0 ]
 
-    # ── 8. Evaluation script ───────────────────────────────────────────────
+    # ── 8. Patch and run evaluation script ────────────────────────────────
     - name: Run evaluation
       run: |
-        LLVM_BIN=/usr/lib/llvm-17/bin
-        PASS=$PWD/pass-build/linux/lib/EnergyPass.so
-        export ENERGY_MODEL_PATH=$PWD/data/energy_model.json
-        # Override the hardcoded repo path in evaluate.py so it finds sources
-        export REPO_ROOT=$PWD
-        export LLVM_BIN PASS
+        # evaluate.py hard-codes ~/Static-Energy-Estimation-Pass-CD-EL- and
+        # mac/windows LLVM paths. We patch it in-place for the CI environment.
+        sed -i \
+          "s|REPO   = os.path.expanduser.*|REPO = os.environ.get('REPO_ROOT', os.getcwd())|" \
+          scripts/evaluate.py
+        sed -i \
+          "s|PASS  = os.path.join(REPO, 'pass-build', 'mac-arm64'.*|PASS = os.path.join(REPO, 'pass-build', 'linux', 'lib', 'EnergyPass.so')|" \
+          scripts/evaluate.py
+        sed -i \
+          "s|CLANG = os.path.join(BUILD, 'bin', 'clang')|CLANG = '/usr/lib/llvm-17/bin/clang-17'|" \
+          scripts/evaluate.py
+        sed -i \
+          "s|OPT   = os.path.join(BUILD, 'bin', 'opt')|OPT   = '/usr/lib/llvm-17/bin/opt-17'|" \
+          scripts/evaluate.py
+
+        echo "--- Patched evaluate.py top section ---"
+        head -30 scripts/evaluate.py
+
+        export REPO_ROOT=$GITHUB_WORKSPACE
+        export ENERGY_MODEL_PATH=$GITHUB_WORKSPACE/data/energy_model.json
         python3 scripts/evaluate.py || true
-      env:
-        # evaluate.py uses os.path.expanduser('~/Static-Energy-Estimation-Pass-CD-EL-')
-        # We patch it via HOME trick — point HOME so the tilde path resolves correctly
-        HOME: ${{ github.workspace }}/..
 
     # ── 9. Upload remarks YAML ─────────────────────────────────────────────
     - name: Upload remarks
@@ -144,5 +157,5 @@ jobs:
       if: always()
       with:
         name: energy-remarks
-        path: remarks/*_remarks.yml
+        path: remarks/
         if-no-files-found: warn
