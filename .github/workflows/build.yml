@@ -7,20 +7,15 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
 
     steps:
 
-    # ── 1. Checkout ────────────────────────────────────────────────────────
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    # ── 2. Install LLVM 17 + tools ─────────────────────────────────────────
     - name: Install dependencies
       run: |
         wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
@@ -36,17 +31,16 @@ jobs:
         echo "LLVM version:"
         /usr/lib/llvm-17/bin/opt --version
 
-    # ── 3. Patch lib/CMakeLists.txt ────────────────────────────────────────
-    #    Remove the DEPENDS intrinsics_gen line — that target only exists
-    #    inside an in-tree LLVM build and makes cmake configure fail when
-    #    using an installed LLVM package (llvm-17-dev).
+    # FIX 1: Create remarks/ early so upload-artifact always finds it
+    - name: Create output directories
+      run: mkdir -p "$GITHUB_WORKSPACE/remarks"
+
     - name: Patch lib/CMakeLists.txt
       run: |
         cat > lib/CMakeLists.txt << 'CMAKE'
         add_llvm_pass_plugin(EnergyPass
           EnergyPass.cpp
         )
-
         target_link_libraries(EnergyPass PRIVATE
           LLVMCore
           LLVMSupport
@@ -54,10 +48,7 @@ jobs:
           LLVMAnalysis
         )
         CMAKE
-        echo "lib/CMakeLists.txt after patch:"
-        cat lib/CMakeLists.txt
 
-    # ── 4. Write CMakeUserPresets.json ─────────────────────────────────────
     - name: Write CMakeUserPresets.json
       run: |
         cat > CMakeUserPresets.json << 'PRESET'
@@ -84,27 +75,21 @@ jobs:
         }
         PRESET
 
-    # ── 5. Configure ───────────────────────────────────────────────────────
     - name: CMake Configure
       run: |
         cmake --preset linux-llvm17 \
           -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
-        echo "Configure exit: $?"
 
-    # ── 6. Build ───────────────────────────────────────────────────────────
     - name: CMake Build
       run: |
         cmake --build --preset linux-llvm17 --verbose
-        echo "Built plugin:"
         ls -lh pass-build/linux/lib/EnergyPass.so
 
-    # ── 7. Run all 7 test cases ────────────────────────────────────────────
     - name: Run test suite
       run: |
         LLVM_BIN=/usr/lib/llvm-17/bin
         PASS=$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so
         REMARKS_DIR=$GITHUB_WORKSPACE/remarks
-        mkdir -p "$REMARKS_DIR"
         export ENERGY_MODEL_PATH=$GITHUB_WORKSPACE/data/energy_model.json
 
         PASS_OK=0
@@ -112,7 +97,6 @@ jobs:
 
         for src in test/0*.c; do
           name=$(basename "${src%.c}")
-          echo ""
           echo "========================================"
           echo " $name"
           echo "========================================"
@@ -134,58 +118,16 @@ jobs:
           fi
         done
 
-        echo ""
-        echo "========================================"
-        echo " Results: $PASS_OK passed, $PASS_FAIL failed"
-        echo "========================================"
-        echo "Remarks written:"
+        echo "Results: $PASS_OK passed, $PASS_FAIL failed"
         ls -lh "$REMARKS_DIR/"
-
         [ $PASS_FAIL -eq 0 ]
 
-    # ── 8. Patch and run evaluation script ────────────────────────────────
     - name: Run evaluation
       run: |
-        # evaluate.py hardcodes ~/Static-Energy-Estimation-Pass-CD-EL-
-        # and macOS/Windows LLVM paths — patch all four lines for Linux CI.
-        python3 - << 'PYEOF'
-        import re, pathlib
-
-        p = pathlib.Path("scripts/evaluate.py")
-        src = p.read_text()
-
-        src = re.sub(
-            r"REPO\s*=\s*os\.path\.expanduser\([^\n]+\)",
-            "REPO = os.environ.get('REPO_ROOT', os.getcwd())",
-            src
-        )
-        src = re.sub(
-            r"PASS\s*=\s*os\.path\.join\(REPO,\s*'pass-build',\s*'mac-arm64'[^\n]+\)",
-            "PASS  = os.path.join(REPO, 'pass-build', 'linux', 'lib', 'EnergyPass.so')",
-            src
-        )
-        src = re.sub(
-            r"CLANG\s*=\s*os\.path\.join\(BUILD[^\n]+\n",
-            "CLANG = '/usr/lib/llvm-17/bin/clang-17'\n",
-            src
-        )
-        src = re.sub(
-            r"OPT\s*=\s*os\.path\.join\(BUILD[^\n]+\n",
-            "OPT   = '/usr/lib/llvm-17/bin/opt-17'\n",
-            src
-        )
-        p.write_text(src)
-        print("Patched successfully")
-        PYEOF
-
-        echo "--- Top of patched evaluate.py ---"
-        head -35 scripts/evaluate.py
-
         export REPO_ROOT=$GITHUB_WORKSPACE
         export ENERGY_MODEL_PATH=$GITHUB_WORKSPACE/data/energy_model.json
         python3 scripts/evaluate.py || true
 
-    # ── 9. Upload remarks YAML ─────────────────────────────────────────────
     - name: Upload remarks
       uses: actions/upload-artifact@v4
       if: always()
