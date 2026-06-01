@@ -41,9 +41,23 @@ jobs:
     - name: Patch lib/CMakeLists.txt
       run: |
         cat > lib/CMakeLists.txt << 'CMAKE'
+        cmake_minimum_required(VERSION 3.20)
+        project(EnergyPassPlugin LANGUAGES CXX)
+
+        # 1. Ensure LLVM cmake modules are accessible
+        find_package(LLVM REQUIRED CONFIG)
+        list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+        include(AddLLVM)
+
+        # 2. Add compile definitions and include headers
+        include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
+        add_definitions(${LLVM_DEFINITIONS})
+
+        # 3. Safely define out-of-tree pass plugin
         add_llvm_pass_plugin(EnergyPass
           EnergyPass.cpp
         )
+
         target_link_libraries(EnergyPass PRIVATE
           LLVMCore
           LLVMSupport
