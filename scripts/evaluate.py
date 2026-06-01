@@ -32,7 +32,7 @@ else:
     PASS  = os.path.join(REPO, 'pass-build', 'linux',
                          'lib', 'EnergyPass.so')
     CLANG = os.environ.get('CLANG_BIN', '/usr/lib/llvm-17/bin/clang-17')
-    OPT   = os.environ.get('OPT_BIN',   '/usr/lib/llvm-17/bin/opt-17')
+    OPT   = os.environ.get('OPT_BIN',   '/usr/lib/llvm-17/bin/opt')
 
 REFERENCE = {
     'Integer':     (1.0,  1.0,  'Baseline — 1 cycle ALU ops [1,2]'),
