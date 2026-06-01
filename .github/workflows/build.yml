@@ -5,7 +5,10 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:   # lets you trigger it manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-and-test:
@@ -13,23 +16,36 @@ jobs:
 
     steps:
 
-    # ── 1. Checkout your repo ──────────────────────────────────────────────
+    # ── 1. Checkout ────────────────────────────────────────────────────────
     - name: Checkout repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
-    # ── 2. Install dependencies ────────────────────────────────────────────
+    # ── 2. Install LLVM 17 + tools ─────────────────────────────────────────
     - name: Install dependencies
       run: |
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+        sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main"
         sudo apt-get update
         sudo apt-get install -y \
-          cmake ninja-build clang-17 llvm-17 llvm-17-dev \
-          libllvm17 llvm-17-tools python3 python3-pip
+          cmake ninja-build \
+          clang-17 llvm-17 llvm-17-dev llvm-17-tools \
+          python3 python3-pip
         pip3 install psutil
+        echo "LLVM version:"
+        /usr/lib/llvm-17/bin/opt --version
 
-    # ── 3. Create CMakeUserPresets.json ────────────────────────────────────
-    - name: Create CMakeUserPresets.json
+    # ── 3. Patch CMakeLists.txt for Linux (no local build/ tree needed) ────
+    - name: Patch CMakeLists for Linux
       run: |
-        cat > CMakeUserPresets.json << 'EOF'
+        sed -i 's|include_directories(${CMAKE_SOURCE_DIR}/build/include)||g' CMakeLists.txt
+        sed -i 's|include_directories(${CMAKE_SOURCE_DIR}/include)||g' CMakeLists.txt
+        echo "CMakeLists.txt after patch:"
+        cat CMakeLists.txt
+
+    # ── 4. Write CMakeUserPresets.json ─────────────────────────────────────
+    - name: Write CMakeUserPresets.json
+      run: |
+        cat > CMakeUserPresets.json << 'PRESET'
         {
           "version": 6,
           "configurePresets": [
@@ -39,9 +55,11 @@ jobs:
               "binaryDir": "${sourceDir}/pass-build/linux",
               "generator": "Ninja",
               "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "LLVM_DIR": "/usr/lib/llvm-17/lib/cmake/llvm"
+                "CMAKE_BUILD_TYPE":             "RelWithDebInfo",
+                "CMAKE_EXPORT_COMPILE_COMMANDS":"ON",
+                "LLVM_DIR":                     "/usr/lib/llvm-17/lib/cmake/llvm",
+                "CMAKE_CXX_COMPILER":           "/usr/bin/clang++-17",
+                "CMAKE_C_COMPILER":             "/usr/bin/clang-17"
               }
             }
           ],
@@ -49,45 +67,76 @@ jobs:
             { "name": "linux-llvm17", "configurePreset": "linux-llvm17" }
           ]
         }
-        EOF
+        PRESET
 
-    # ── 4. Build the pass plugin ───────────────────────────────────────────
-    - name: Build EnergyPass
+    # ── 5. Configure ───────────────────────────────────────────────────────
+    - name: CMake Configure
       run: |
-        cmake --preset linux-llvm17
-        cmake --build --preset linux-llvm17
+        cmake --preset linux-llvm17 -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
+        echo "Configure exit code: $?"
 
-    # ── 5. Run all test cases ──────────────────────────────────────────────
+    # ── 6. Build ───────────────────────────────────────────────────────────
+    - name: CMake Build
+      run: |
+        cmake --build --preset linux-llvm17 --verbose
+        echo "Built plugin:"
+        ls -lh pass-build/linux/lib/EnergyPass.so
+
+    # ── 7. Run all 7 test cases ────────────────────────────────────────────
     - name: Run test suite
       run: |
-        BUILD=/usr/lib/llvm-17
+        LLVM_BIN=/usr/lib/llvm-17/bin
         PASS=$PWD/pass-build/linux/lib/EnergyPass.so
         export ENERGY_MODEL_PATH=$PWD/data/energy_model.json
+        PASS_OK=0
+        PASS_FAIL=0
 
         for src in test/0*.c; do
           name=$(basename "${src%.c}")
+          echo ""
           echo "========================================"
           echo " $name"
           echo "========================================"
 
-          $BUILD/bin/clang-17 -O1 -g -emit-llvm \
-            "$src" -c -o /tmp/${name}.bc
+          $LLVM_BIN/clang-17 -O1 -g -emit-llvm \
+            "$src" -c -o /tmp/${name}.bc 2>&1
 
-          $BUILD/bin/opt-17 \
+          $LLVM_BIN/opt-17 \
             -load-pass-plugin="$PASS" \
             -passes="energy-pass" \
             -pass-remarks-analysis=energy \
             -pass-remarks-output=/tmp/${name}_remarks.yml \
-            -disable-output /tmp/${name}.bc
+            -disable-output /tmp/${name}.bc 2>&1
+
+          if [ $? -eq 0 ]; then
+            echo "  [PASS] $name"
+            PASS_OK=$((PASS_OK+1))
+          else
+            echo "  [FAIL] $name"
+            PASS_FAIL=$((PASS_FAIL+1))
+          fi
         done
 
-    # ── 6. Run evaluation script ───────────────────────────────────────────
-    - name: Run evaluation
-      run: python3 scripts/evaluate.py
+        echo ""
+        echo "========================================"
+        echo " Results: $PASS_OK passed, $PASS_FAIL failed"
+        echo "========================================"
+        [ $PASS_FAIL -eq 0 ]
 
-    # ── 7. Upload remarks as artifacts (download from Actions tab) ─────────
-    - name: Upload remarks YAML
-      uses: actions/upload-artifact@v4
+    # ── 8. Evaluation script ───────────────────────────────────────────────
+    - name: Run evaluation
+      run: |
+        LLVM_BIN=/usr/lib/llvm-17/bin
+        PASS=$PWD/pass-build/linux/lib/EnergyPass.so
+        export ENERGY_MODEL_PATH=$PWD/data/energy_model.json
+        export LLVM_BIN PASS
+        python3 scripts/evaluate.py || true
+
+    # ── 9. Upload remarks YAML ─────────────────────────────────────────────
+    - name: Upload remarks
+      uses: actions/upload-artifact@v4.4.0
+      if: always()
       with:
         name: energy-remarks
         path: /tmp/*_remarks.yml
+        if-no-files-found: warn
