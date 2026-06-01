@@ -30,11 +30,13 @@ jobs:
           clang-17 llvm-17 llvm-17-dev llvm-17-tools \
           python3 python3-pip
         pip3 install psutil
-        echo "LLVM version:"
-        /usr/lib/llvm-17/bin/opt --version
 
     - name: Create output directories
-      run: mkdir -p "$GITHUB_WORKSPACE/remarks"
+      run: |
+        mkdir -p "$GITHUB_WORKSPACE/remarks"
+        # Mirror the energy model to a safe static system path as an ultimate fallback
+        mkdir -p /tmp/data
+        cp data/energy_model.json /tmp/data/energy_model.json
 
     - name: Patch lib/CMakeLists.txt
       run: |
@@ -78,59 +80,52 @@ jobs:
 
     - name: CMake Configure
       run: |
-        cmake --preset linux-llvm17 \
-          -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
+        cmake --preset linux-llvm17 -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm
 
     - name: CMake Build
       run: |
         cmake --build --preset linux-llvm17 --verbose
-        ls -lh pass-build/linux/lib/EnergyPass.so
 
     - name: Run test suite
       run: |
         PASS="$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so"
         REMARKS_DIR="$GITHUB_WORKSPACE/remarks"
+        
+        # Set all potential paths your plugin fallback checks
         export ENERGY_MODEL_PATH="$GITHUB_WORKSPACE/data/energy_model.json"
 
         PASS_OK=0
         PASS_FAIL=0
 
-        # Run loop explicitly safely checking file existence
         for src in test/*.c; do
           [ -e "$src" ] || continue
           name=$(basename "${src%.c}")
           echo "========================================"
-          echo " Running Pass Validation on: $name"
+          echo " Processing: $name"
           echo "========================================"
 
-          # 1. Compile cleanly to bitcode
-          if ! /usr/bin/clang-17 -O1 -g -emit-llvm "$src" -c -o "/tmp/${name}.bc" 2>&1; then
-            echo "  [FAIL] Compilation failed for $name"
-            PASS_FAIL=$((PASS_FAIL+1))
-            continue
-          fi
+          # Compile cleanly with explicit flags
+          /usr/bin/clang-17 -O1 -g -Xclang -disable-llvm-passes -emit-llvm "$src" -c -o "/tmp/${name}.bc"
 
-          # 2. Run your out-of-tree pass pipeline 
+          # Run the optimization pass and force verbose error output to console if it fails
           if /usr/bin/opt-17 \
               -load-pass-plugin="$PASS" \
               -passes="energy-pass" \
               -pass-remarks-analysis=energy \
               -pass-remarks-output="${REMARKS_DIR}/${name}_remarks.yml" \
-              -disable-output "/tmp/${name}.bc" 2>&1; then
-            echo "  [PASS] Successfully completed pass analysis for: $name"
+              -disable-output "/tmp/${name}.bc"; then
+            echo "  [PASS] $name"
             PASS_OK=$((PASS_OK+1))
           else
-            echo "  [FAIL] Plugin analysis execution cracked on: $name"
+            echo "  [FAIL] $name crashed or returned non-zero during pass parsing"
             PASS_FAIL=$((PASS_FAIL+1))
           fi
         done
 
-        echo "Final Test Summary: $PASS_OK passed, $PASS_FAIL failed"
-        ls -la "$REMARKS_DIR/"
+        echo "Results: $PASS_OK passed, $PASS_FAIL failed"
         
-        # Enforce hard step failure if any test file fell through
+        # Prevent silent failures from stopping step diagnostic tracking
         if [ $PASS_FAIL -ne 0 ]; then
-          echo "CI Suite failed due to test discrepancies."
           exit 1
         fi
 
@@ -146,4 +141,4 @@ jobs:
       with:
         name: energy-remarks
         path: remarks/
-        if-no-files-found: warn # Changes to warning so empty runs do not obscure the true build error logs
+        if-no-files-found: warn
