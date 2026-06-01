@@ -7,12 +7,15 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Enforces Node.js 24 execution rules to satisfy runner requirements
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
 
     steps:
-
     - name: Checkout repo
       uses: actions/checkout@v4
 
@@ -31,7 +34,6 @@ jobs:
         echo "LLVM version:"
         /usr/lib/llvm-17/bin/opt --version
 
-    # FIX 1: Create remarks/ early so upload-artifact always finds it
     - name: Create output directories
       run: mkdir -p "$GITHUB_WORKSPACE/remarks"
 
@@ -87,7 +89,6 @@ jobs:
 
     - name: Run test suite
       run: |
-        LLVM_BIN=/usr/lib/llvm-17/bin
         PASS=$GITHUB_WORKSPACE/pass-build/linux/lib/EnergyPass.so
         REMARKS_DIR=$GITHUB_WORKSPACE/remarks
         export ENERGY_MODEL_PATH=$GITHUB_WORKSPACE/data/energy_model.json
@@ -95,16 +96,19 @@ jobs:
         PASS_OK=0
         PASS_FAIL=0
 
-        for src in test/0*.c; do
+        # Loops through both numbered test cases and standard .c files like hello.c
+        for src in test/*.c; do
+          [ -e "$src" ] || continue
           name=$(basename "${src%.c}")
           echo "========================================"
-          echo " $name"
+          echo " Processing Test: $name"
           echo "========================================"
 
-          $LLVM_BIN/clang-17 -O1 -g -emit-llvm \
+          # Fixed paths targeting standard apt installation binaries directly
+          /usr/bin/clang-17 -O1 -g -emit-llvm \
             "$src" -c -o /tmp/${name}.bc 2>&1
 
-          if $LLVM_BIN/opt-17 \
+          if /usr/bin/opt-17 \
               -load-pass-plugin="$PASS" \
               -passes="energy-pass" \
               -pass-remarks-analysis=energy \
@@ -134,4 +138,4 @@ jobs:
       with:
         name: energy-remarks
         path: remarks/
-        if-no-files-found: warn
+        if-no-files-found: error
