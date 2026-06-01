@@ -1,0 +1,93 @@
+name: EnergyPass CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:   # lets you trigger it manually from the Actions tab
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+
+    steps:
+
+    # ── 1. Checkout your repo ──────────────────────────────────────────────
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    # ── 2. Install dependencies ────────────────────────────────────────────
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake ninja-build clang-17 llvm-17 llvm-17-dev \
+          libllvm17 llvm-17-tools python3 python3-pip
+        pip3 install psutil
+
+    # ── 3. Create CMakeUserPresets.json ────────────────────────────────────
+    - name: Create CMakeUserPresets.json
+      run: |
+        cat > CMakeUserPresets.json << 'EOF'
+        {
+          "version": 6,
+          "configurePresets": [
+            {
+              "name": "linux-llvm17",
+              "displayName": "Linux LLVM 17 (CI)",
+              "binaryDir": "${sourceDir}/pass-build/linux",
+              "generator": "Ninja",
+              "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "LLVM_DIR": "/usr/lib/llvm-17/lib/cmake/llvm"
+              }
+            }
+          ],
+          "buildPresets": [
+            { "name": "linux-llvm17", "configurePreset": "linux-llvm17" }
+          ]
+        }
+        EOF
+
+    # ── 4. Build the pass plugin ───────────────────────────────────────────
+    - name: Build EnergyPass
+      run: |
+        cmake --preset linux-llvm17
+        cmake --build --preset linux-llvm17
+
+    # ── 5. Run all test cases ──────────────────────────────────────────────
+    - name: Run test suite
+      run: |
+        BUILD=/usr/lib/llvm-17
+        PASS=$PWD/pass-build/linux/lib/EnergyPass.so
+        export ENERGY_MODEL_PATH=$PWD/data/energy_model.json
+
+        for src in test/0*.c; do
+          name=$(basename "${src%.c}")
+          echo "========================================"
+          echo " $name"
+          echo "========================================"
+
+          $BUILD/bin/clang-17 -O1 -g -emit-llvm \
+            "$src" -c -o /tmp/${name}.bc
+
+          $BUILD/bin/opt-17 \
+            -load-pass-plugin="$PASS" \
+            -passes="energy-pass" \
+            -pass-remarks-analysis=energy \
+            -pass-remarks-output=/tmp/${name}_remarks.yml \
+            -disable-output /tmp/${name}.bc
+        done
+
+    # ── 6. Run evaluation script ───────────────────────────────────────────
+    - name: Run evaluation
+      run: python3 scripts/evaluate.py
+
+    # ── 7. Upload remarks as artifacts (download from Actions tab) ─────────
+    - name: Upload remarks YAML
+      uses: actions/upload-artifact@v4
+      with:
+        name: energy-remarks
+        path: /tmp/*_remarks.yml
