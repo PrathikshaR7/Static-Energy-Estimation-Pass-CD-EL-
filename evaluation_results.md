@@ -37,9 +37,9 @@ Result: ALL PASS
 Weighted energy ratio of fp_sum_sq vs int_sum_sq.
 Expected 1.0-2.5x from literature.
 
-  int_sum_sq  weighted energy : 288.0000
-  fp_sum_sq   weighted energy : 301.8000
-  Observed ratio (FP/Int)     : 1.048x
+  int_sum_sq  weighted energy : 122.5000
+  fp_sum_sq   weighted energy : 128.0000
+  Observed ratio (FP/Int)     : 1.045x
   Expected range              : 1.0x – 2.5x
   Result                      : [PASS]
 
@@ -55,11 +55,11 @@ Expected ratio >= 1.8x from literature.
 
 Function               Mem cnt  Mem/instr Int cnt  Int/instr   Ratio  Result
 ------------------------------------------------------------------------
-matrix_add                   3     25.000       8      7.750    3.23x  [PASS]
-matrix_transpose             2    250.000      18     47.000    5.32x  [PASS]
-seq_sum                      1     25.000       6      7.000    3.57x  [PASS]
-strided_sum                  1     25.000       7      6.143    4.07x  [PASS]
-fill_array                   1     25.000       6      7.000    3.57x  [PASS]
+matrix_add                   3     20.000       8      7.750    2.58x  [PASS]
+matrix_transpose             2    200.000      18     37.000    5.41x  [PASS]
+seq_sum                      1     20.000       6      7.000    2.86x  [PASS]
+strided_sum                  1     20.000       7      6.143    3.26x  [PASS]
+fill_array                   1     20.000       6      7.000    2.86x  [PASS]
 
 Result: ALL PASS
 
@@ -72,11 +72,11 @@ amplification factor expected from loop nesting depth.
 
 Function                 Static   Weighted     Amp  Min Exp  Result
 ------------------------------------------------------------------------
-matmul                   109.80   55300.50   503.6x   100.0x  [PASS]
-bubble_sort               78.00    3525.00    45.2x    20.0x  [PASS]
-matrix_transpose          72.00    2434.50    33.8x    20.0x  [PASS]
-gcd                       36.50     248.00     6.8x     3.0x  [PASS]
-popcount                  35.00     233.00     6.7x     3.0x  [PASS]
+matmul                    47.50   26426.50   556.3x   100.0x  [PASS]
+bubble_sort               36.00    1980.00    55.0x    20.0x  [PASS]
+matrix_transpose          32.50    1265.50    38.9x    20.0x  [PASS]
+gcd                       10.50      60.00     5.7x     3.0x  [PASS]
+popcount                  12.50      80.00     6.4x     3.0x  [PASS]
 
 Result: ALL PASS
 
