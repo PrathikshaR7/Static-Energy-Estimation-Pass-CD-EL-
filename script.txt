@@ -1,0 +1,14 @@
+# 1. Compile the EnergyPass plugin shared library
+./scripts/build.sh
+
+# 2. Run the test suite on all 8 test cases (outputs block-by-block metrics and remarks)
+./scripts/run_tests.sh
+
+# 3. Validate estimated energy costs against literature bounds and generate evaluation_results.md
+python3 scripts/evaluate.py
+
+# 4. Generate the HTML report dashboard showing annotated source code for all test cases
+python3 scripts/visualize.py --all
+
+# 5. Open the visual HTML energy report in your web browser
+open report.html

@@ -21,7 +21,9 @@ from collections import defaultdict
 REPO    = os.path.expanduser('~/Static-Energy-Estimation-Pass-CD-EL-')
 TMPDIR  = tempfile.gettempdir()
 TESTNAMES = ['01_integer','02_float','03_memory',
-             '04_nested_loops','05_mixed']
+             '04_nested_loops','05_mixed',
+             '06_fp_vs_int','07_memory_latency',
+             '08_false_prediction']
 
 # ---------------------------------------------------------------------------
 # YAML remark parser

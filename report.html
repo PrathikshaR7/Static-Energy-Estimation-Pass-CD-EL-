@@ -96,6 +96,16 @@
           <td class="amplification">55.0x</td>
         </tr>
         <tr>
+          <td><code>false_hot_loop</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            08_false_prediction.c</td>
+          <td>24</td>
+          <td class="energy-low">28.00</td>
+          <td class="energy-low">1364.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:8px"></div></div></td>
+          <td class="amplification">48.7x</td>
+        </tr>
+        <tr>
           <td><code>matrix_transpose</code></td>
           <td style="color:#64748b;font-size:0.8rem">
             03_memory.c</td>
@@ -146,6 +156,16 @@
           <td class="amplification">7.3x</td>
         </tr>
         <tr>
+          <td><code>fp_sum_sq</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            06_fp_vs_int.c</td>
+          <td>14</td>
+          <td class="energy-low">20.00</td>
+          <td class="energy-low">128.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">6.4x</td>
+        </tr>
+        <tr>
           <td><code>find_max</code></td>
           <td style="color:#64748b;font-size:0.8rem">
             03_memory.c</td>
@@ -164,6 +184,56 @@
           <td class="energy-low">123.00</td>
           <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
           <td class="amplification">8.2x</td>
+        </tr>
+        <tr>
+          <td><code>int_sum_sq</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            06_fp_vs_int.c</td>
+          <td>16</td>
+          <td class="energy-low">19.00</td>
+          <td class="energy-low">122.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">6.4x</td>
+        </tr>
+        <tr>
+          <td><code>false_cold_loop</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            08_false_prediction.c</td>
+          <td>14</td>
+          <td class="energy-low">16.50</td>
+          <td class="energy-low">120.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">7.3x</td>
+        </tr>
+        <tr>
+          <td><code>strided_sum</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            07_memory_latency.c</td>
+          <td>15</td>
+          <td class="energy-low">19.50</td>
+          <td class="energy-low">114.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">5.8x</td>
+        </tr>
+        <tr>
+          <td><code>seq_sum</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            07_memory_latency.c</td>
+          <td>14</td>
+          <td class="energy-low">18.50</td>
+          <td class="energy-low">113.00</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">6.1x</td>
+        </tr>
+        <tr>
+          <td><code>fill_array</code></td>
+          <td style="color:#64748b;font-size:0.8rem">
+            07_memory_latency.c</td>
+          <td>11</td>
+          <td class="energy-low">14.00</td>
+          <td class="energy-low">81.50</td>
+          <td class="bar-cell"><div class="bar-bg" style="width:160px"><div class="bar-fill" style="width:0px"></div></div></td>
+          <td class="amplification">5.8x</td>
         </tr>
         <tr>
           <td><code>popcount</code></td>
@@ -310,6 +380,43 @@
               <span style="color:#475569"> depth=1</span></span>
             <span class="value" style="color:#fbbf24">
               25.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>false_hot_loop</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=24 &nbsp;
+          08_false_prediction.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">28.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">1364.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">48.7x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body4
+              <span style="color:#475569"> depth=2</span></span>
+            <span class="value" style="color:#fbbf24">
+              950.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond.cleanup3
+              <span style="color:#475569"> depth=2</span></span>
+            <span class="value" style="color:#fbbf24">
+              350.0</span>
+          </div>
+          <div class="fn-stat">
+            <span class="label">↳ for.cond1.preheader
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              55.0</span>
           </div>
       </div>
       <div class="fn-card">
@@ -474,6 +581,31 @@
           </div>
       </div>
       <div class="fn-card">
+        <h4>fp_sum_sq</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=14 &nbsp;
+          06_fp_vs_int.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">20.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">128.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">6.4x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              120.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
         <h4>find_max</h4>
         <div class="meta">arch=aarch64 &nbsp;
           instrs=15 &nbsp;
@@ -527,6 +659,131 @@
               <span style="color:#475569"> depth=1</span></span>
             <span class="value" style="color:#fbbf24">
               15.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>int_sum_sq</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=16 &nbsp;
+          06_fp_vs_int.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">19.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">122.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">6.4x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              115.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>false_cold_loop</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=14 &nbsp;
+          08_false_prediction.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">16.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">120.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">7.3x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              115.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>strided_sum</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=15 &nbsp;
+          07_memory_latency.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">19.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">114.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">5.8x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              105.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>seq_sum</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=14 &nbsp;
+          07_memory_latency.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">18.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">113.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">6.1x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              105.0</span>
+          </div>
+      </div>
+      <div class="fn-card">
+        <h4>fill_array</h4>
+        <div class="meta">arch=aarch64 &nbsp;
+          instrs=11 &nbsp;
+          07_memory_latency.c</div>
+        <div class="fn-stat">
+          <span class="label">Static energy</span>
+          <span class="value">14.0000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Weighted energy</span>
+          <span class="value">81.5000</span>
+        </div>
+        <div class="fn-stat">
+          <span class="label">Loop amplification</span>
+          <span class="value amplification">5.8x</span>
+        </div>
+        
+          <div class="fn-stat">
+            <span class="label">↳ for.body
+              <span style="color:#475569"> depth=1</span></span>
+            <span class="value" style="color:#fbbf24">
+              75.0</span>
           </div>
       </div>
       <div class="fn-card">
@@ -652,6 +909,27 @@
   <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/05_mixed.c</div>
   <table class="source-table"><tbody>
     <tr class=""><td class="line-num">1</td><td class="line-code">// Test 05: Mixed realistic workload</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Expected: balanced category distribution, moderate weighted-energy</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Combines integer control flow, FP computation, and memory access</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">typedef struct { float x, y, z; } Vec3;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">7</td><td class="line-code">static float vec3_dot(Vec3 a, Vec3 b) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">8</td><td class="line-code">    return a.x*b.x + a.y*b.y + a.z*b.z;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">9</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">10</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">11</td><td class="line-code">static Vec3 vec3_scale(Vec3 v, float s) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">12</td><td class="line-code">    return (Vec3){ v.x*s, v.y*s, v.z*s };</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">13</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">14</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code">// Simple ray-sphere intersection (energy-relevant graphics primitive)</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">16</td><td class="line-code">int ray_sphere(Vec3 origin, Vec3 dir, Vec3 center, float radius,</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">               float *t_out) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">18</td><td class="line-code">    Vec3  oc  = { origin.x - center.x,</td><td class="line-annot"><span class="annot-pill annot-function">⚡ ray_sphere w=71.5 (1.0x)</span></td></tr><tr class=""><td class="line-num">19</td><td class="line-code">                  origin.y - center.y,</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">20</td><td class="line-code">                  origin.z - center.z };</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">21</td><td class="line-code">    float a   = vec3_dot(dir, dir);</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">    float b   = 2.0f * vec3_dot(oc, dir);</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">    float c   = vec3_dot(oc, oc) - radius * radius;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">24</td><td class="line-code">    float disc = b*b - 4.0f*a*c;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">25</td><td class="line-code">    if (disc &lt; 0.0f) return 0;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">26</td><td class="line-code">    *t_out = (-b - __builtin_sqrtf(disc)) / (2.0f * a);</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">27</td><td class="line-code">    return 1;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">28</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">29</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">30</td><td class="line-code">// Reduce an array with a running average</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">31</td><td class="line-code">float running_avg(float *data, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">32</td><td class="line-code">    float avg = 0.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">33</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ running_avg w=168.0 (7.0x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">34</td><td class="line-code">        avg += (data[i] - avg) / (float)(i + 1);</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=160.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">35</td><td class="line-code">    return avg;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">36</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/06_fp_vs_int.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/06_fp_vs_int.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 06: FP vs Integer ratio validation</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Purpose: Isolate the FloatScalar/Integer energy ratio.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Our model: FloatScalar=1.5, Integer=1.0 -&gt; ratio 1.5x</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code">// Literature (ARM Cortex-A55 opt guide): FP scalar ops cost ~1.4-1.6x</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">// integer ops in terms of issue latency and power draw.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code">// This test runs equivalent workloads in FP and integer to confirm</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">7</td><td class="line-code">// the ratio our pass reports matches the published range.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">8</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">9</td><td class="line-code">// Integer-only version: sum of squares</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">10</td><td class="line-code">long int_sum_sq(int *arr, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">11</td><td class="line-code">    long sum = 0;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">12</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ int_sum_sq w=122.5 (6.4x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">13</td><td class="line-code">        sum += (long)arr[i] * arr[i];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=115.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">14</td><td class="line-code">    return sum;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">16</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">// FP-equivalent version: same operation in float</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">18</td><td class="line-code">float fp_sum_sq(float *arr, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">19</td><td class="line-code">    float sum = 0.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">20</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ fp_sum_sq w=128.0 (6.4x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">21</td><td class="line-code">        sum += arr[i] * arr[i];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=120.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">    return sum;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/07_memory_latency.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/07_memory_latency.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 07: Memory access pattern validation</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Purpose: Confirm Memory category dominates and scales correctly.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// Our model: Memory=2.0 vs Integer=1.0 -&gt; 2x cost per access.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code">// Literature (Cortex-A55): L1 load latency ~4 cycles vs ALU ~1 cycle,</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">// making memory ops 2-4x more expensive per instruction.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code">// Sequential vs strided access to demonstrate memory pressure scaling.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">7</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">8</td><td class="line-code">// Sequential access — L1 cache friendly</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">9</td><td class="line-code">float seq_sum(float *arr, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">10</td><td class="line-code">    float sum = 0.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">11</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ seq_sum w=113.0 (6.1x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">12</td><td class="line-code">        sum += arr[i];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=105.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">13</td><td class="line-code">    return sum;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">14</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">15</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">16</td><td class="line-code">// Strided access — cache unfriendly, higher real energy cost</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">// (our static model treats both equally; this is a known limitation)</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">18</td><td class="line-code">float strided_sum(float *arr, int n, int stride) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">19</td><td class="line-code">    float sum = 0.0f;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">20</td><td class="line-code">    for (int i = 0; i &lt; n; i += stride)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ strided_sum w=114.0 (5.8x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">21</td><td class="line-code">        sum += arr[i];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=105.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">    return sum;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">24</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">25</td><td class="line-code">// Write-heavy — store operations</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">26</td><td class="line-code">void fill_array(float *arr, int n, float val) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">27</td><td class="line-code">    for (int i = 0; i &lt; n; i++)</td><td class="line-annot"><span class="annot-pill annot-function">⚡ fill_array w=81.5 (5.8x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">28</td><td class="line-code">        arr[i] = val;</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=75.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">29</td><td class="line-code">}</td><td class="line-annot"></td></tr>
+  </tbody></table>
+</div>
+<h3>📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/08_false_prediction.c</h3>
+<div class="source-file">
+  <div class="source-file-header">📄 /Users/prateek/Static-Energy-Estimation-Pass-CD-EL-/test/08_false_prediction.c</div>
+  <table class="source-table"><tbody>
+    <tr class=""><td class="line-num">1</td><td class="line-code">// Test 08: False Prediction (Static vs. Dynamic Discrepancy)</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">2</td><td class="line-code">// Purpose: Demonstrate a scenario where static energy estimation</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">3</td><td class="line-code">// gives a false/misleading prediction compared to actual runtime execution.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">4</td><td class="line-code">// Specifically, it exposes the limitations of using a fixed 10^depth loop-weight proxy</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">5</td><td class="line-code">// and ignoring branch conditions/trip counts.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">6</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">7</td><td class="line-code">// Statically &quot;Hot&quot; but Dynamically &quot;Cold&quot;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">8</td><td class="line-code">// This function contains a nested loop (depth-2, weight 100x).</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">9</td><td class="line-code">// Statically, the pass will estimate this as extremely high energy.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">10</td><td class="line-code">// Dynamically, the loop is never entered because n is 0 or it immediately exits.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">11</td><td class="line-code">int false_hot_loop(int *arr, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">12</td><td class="line-code">    int sum = 0;</td><td class="line-annot"></td></tr><tr class=" hot-depth-2"><td class="line-num">13</td><td class="line-code">    for (int i = 0; i &lt; n; i++) {</td><td class="line-annot"><span class="annot-pill annot-function">⚡ false_hot_loop w=1364.5 (48.7x)</span> <span class="annot-pill annot-hotblock">🔥 for.cond.cleanup3 w=350.0</span><span class="annot-pill annot-depth">depth=2</span></td></tr><tr class=" hot-depth-1"><td class="line-num">14</td><td class="line-code">        for (int j = 0; j &lt; n; j++) {</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.cond1.preheader w=55.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=" hot-depth-2"><td class="line-num">15</td><td class="line-code">            sum += arr[i * n + j];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body4 w=950.0</span><span class="annot-pill annot-depth">depth=2</span></td></tr><tr class=""><td class="line-num">16</td><td class="line-code">        }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">17</td><td class="line-code">    }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">18</td><td class="line-code">    return sum;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">19</td><td class="line-code">}</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">20</td><td class="line-code"></td><td class="line-annot"></td></tr><tr class=""><td class="line-num">21</td><td class="line-code">// Statically &quot;Cold&quot; but Dynamically &quot;Hot&quot;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">22</td><td class="line-code">// This function has a flat loop (depth-1, weight 10x).</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">23</td><td class="line-code">// Statically, the pass will estimate this as relatively low energy.</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">24</td><td class="line-code">// Dynamically, it executes a loop with a massive trip count (e.g. 10^6 iterations).</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">25</td><td class="line-code">int false_cold_loop(int *arr, int n) {</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">26</td><td class="line-code">    int sum = 0;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">27</td><td class="line-code">    for (int i = 0; i &lt; n; i++) {</td><td class="line-annot"><span class="annot-pill annot-function">⚡ false_cold_loop w=120.0 (7.3x)</span></td></tr><tr class=" hot-depth-1"><td class="line-num">28</td><td class="line-code">        sum += arr[i % 100];</td><td class="line-annot"><span class="annot-pill annot-hotblock">🔥 for.body w=115.0</span><span class="annot-pill annot-depth">depth=1</span></td></tr><tr class=""><td class="line-num">29</td><td class="line-code">    }</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">30</td><td class="line-code">    return sum;</td><td class="line-annot"></td></tr><tr class=""><td class="line-num">31</td><td class="line-code">}</td><td class="line-annot"></td></tr>
   </tbody></table>
 </div>
 </body>
